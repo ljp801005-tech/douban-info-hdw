@@ -2,8 +2,10 @@
 // @name         HDWing 详情页 · 豆瓣简介生成
 // @name:en      HDWing Detail · Douban Intro Generator
 // @namespace    https://github.com/techmovie/DouBan-Info-for-PT
-// @version      2.4.1
-// @description  仅在 hdwing.org 种子详情页启用：手动粘贴豆瓣条目链接，点「生成」一键得到「◎片名 / ◎译名 / ◎导演 / ◎编剧 / ◎主演 / ◎简介」格式的简介。打开页面只把链接填进输入框、点「生成」才请求豆瓣，左上角只有一个「豆」入口、默认收起，底色即状态（灰=未取到链接 / 绿=已取到 / 蓝=读取中 / 红=失败），界面跟随站点 X2015 主题。
+// @version      2.5.0
+// @description  仅在 hdwing.org 种子详情页启用：手动粘贴豆瓣条目链接，点「生成」一键得到「◎片名 / ◎译名 / ◎导演 / ◎编剧 / ◎主演 / ◎简介」格式的简介。打开页面只把链接填进输入框、点「生成」才请求豆瓣，左上角只有一个「豆」入口、默认收起，底色即状态（灰=未取到链接 / 绿=已取到 / 蓝=读取中 / 红=失败），界面跟随站点 X2015 主题。每周自动检查新版本，有更新时图标出红点。
+// @updateURL    https://raw.githubusercontent.com/ljp801005-tech/douban-info-hdw/main/douban-pt-uploader.user.js
+// @downloadURL  https://raw.githubusercontent.com/ljp801005-tech/douban-info-hdw/main/douban-pt-uploader.user.js
 // @author       WorkBuddy
 // @match        https://hdwing.org/*
 // @match        http://hdwing.org/*
@@ -19,6 +21,7 @@
 // @connect      *.douban.com
 // @connect      *.doubanio.com
 // @connect      v3.sg.media-imdb.com
+// @connect      raw.githubusercontent.com
 // @run-at       document-idle
 // @noframes
 // ==/UserScript==
@@ -59,6 +62,12 @@
     }
   };
 
+  /* ======================== 版本与更新 ======================== */
+
+  var SCRIPT_VERSION = '2.5.0';
+  var UPDATE_URL = 'https://raw.githubusercontent.com/ljp801005-tech/douban-info-hdw/main/douban-pt-uploader.user.js';
+  var CHECK_INTERVAL = 7 * 24 * 3600 * 1000;  // 每周检查一次
+
   /* ======================== 配置 ======================== */
 
   var CFG_KEY = 'dbpt_hdw_cfg_v2';
@@ -74,7 +83,9 @@
     autoFromPage: true,    // 打开详情页时自动把页面上的豆瓣/IMDb 链接填进输入框（不发请求）
     customImdb: '',
     customWriters: '',
-    lastUrl: ''
+    lastUrl: '',
+    lastCheck: 0,          // 上次检查更新的时间戳
+    latestVersion: ''      // 上次检查发现的新版本号（空=无更新）
   };
 
   var cfg = loadCfg();
@@ -730,6 +741,73 @@
     return buildCN(info, c);
   }
 
+  /* ======================== 更新检测 ======================== */
+
+  var updateInfo = null;  // { version: 'x.y.z' }
+
+  // 逐段数字比较：a > b 返回 true
+  function isNewer(a, b) {
+    var pa = String(a || '').split('.'), pb = String(b || '').split('.');
+    for (var i = 0; i < Math.max(pa.length, pb.length); i++) {
+      var x = parseInt(pa[i] || '0', 10), y = parseInt(pb[i] || '0', 10);
+      if (x > y) return true;
+      if (x < y) return false;
+    }
+    return false;
+  }
+
+  // 每周一次拉取仓库里的脚本头部 @version 做比对（force=手动立即检查）
+  function checkUpdate(force) {
+    var now = Date.now();
+    if (!force && cfg.lastCheck && now - cfg.lastCheck < CHECK_INTERVAL) return;
+    cfg.lastCheck = now;
+    saveCfg();
+    request(UPDATE_URL).then(function (t) {
+      if (!t) {
+        if (force) status('检查更新失败：无法访问 GitHub，稍后再试', 'err');
+        return;
+      }
+      var m = String(t).match(/@version\s+([\d.]+)/);
+      if (m && isNewer(m[1], SCRIPT_VERSION)) {
+        cfg.latestVersion = m[1];
+        updateInfo = { version: m[1] };
+      } else {
+        cfg.latestVersion = '';
+        updateInfo = null;
+      }
+      saveCfg();
+      renderUpdateUI();
+      if (force) {
+        if (updateInfo) status('发现新版本 v' + updateInfo.version + '，点底部红字安装更新', 'ok');
+        else status('已是最新版本 v' + SCRIPT_VERSION, 'ok');
+      }
+    });
+  }
+
+  // 有新版本：图标挂红点 + 底部出现红色更新入口
+  function renderUpdateUI() {
+    if (updateInfo && isNewer(updateInfo.version, SCRIPT_VERSION)) {
+      if (ui.tab) {
+        ui.tab.classList.add('upd');
+        ui.tab.title = '发现新版本 v' + updateInfo.version + '，展开面板可安装更新';
+      }
+      if (ui.verLine) {
+        ui.verLine.textContent = 'v' + SCRIPT_VERSION + '（有新版本 v' + updateInfo.version + '）';
+      }
+      if (ui.updLine) {
+        ui.updLine.innerHTML = '';
+        var a = el('a', '', '发现新版本 v' + updateInfo.version + ' → 点击安装更新');
+        a.onclick = function () { gm.open(UPDATE_URL); };
+        ui.updLine.appendChild(a);
+        ui.updLine.classList.remove('hide');
+      }
+    } else {
+      if (ui.tab) ui.tab.classList.remove('upd');
+      if (ui.updLine) ui.updLine.classList.add('hide');
+      if (ui.verLine) ui.verLine.textContent = 'v' + SCRIPT_VERSION + ' · 每周自动检查更新（点击立即检查）';
+    }
+  }
+
   /* ======================== UI ======================== */
 
   var host = null, root = null, ui = {}, dragged = false, expanded = false;
@@ -783,6 +861,12 @@
   /* 失败 / 未匹配 */
   .tab.fail{background:linear-gradient(135deg,#e2574f,#c0453f);border-color:#a83b36;
     box-shadow:0 3px 10px rgba(160,50,45,.4),0 1px 0 rgba(255,255,255,.22) inset}
+  /* 有新版本：右上角红点 */
+  .tab .dot{position:absolute;top:-4px;right:-4px;width:10px;height:10px;border-radius:50%;
+    background:#ff4d4f;border:2px solid #fff;box-shadow:0 0 6px rgba(255,60,60,.85);
+    display:none;animation:dbBlink 1.4s ease-in-out infinite}
+  .tab.upd .dot{display:block}
+  @keyframes dbBlink{0%,100%{opacity:1}50%{opacity:.35}}
   .panel{position:fixed;z-index:2147483647;left:12px;top:96px;width:432px;max-width:calc(100vw - 24px);
     max-height:calc(100vh - 28px);
     display:flex;flex-direction:column;background:var(--bg);color:var(--text);
@@ -826,6 +910,10 @@
   .cand a:hover{background:var(--head)}
   .hide{display:none!important}
   .foot{font-size:10.5px;color:var(--muted);border-top:1px dotted var(--line);padding-top:6px;line-height:1.5}
+  .foot .ver{cursor:pointer}
+  .foot .ver:hover{color:var(--brand)}
+  .foot .upd a{color:var(--err);font-weight:600;cursor:pointer;text-decoration:none}
+  .foot .upd a:hover{text-decoration:underline}
   `;
 
   function el(tag, cls, text) {
@@ -865,6 +953,8 @@
     // 收起态：左上角醒目入口（悬停自动展开）
     ui.tab = el('div', 'tab');
     ui.tab.appendChild(el('span', 'ico', '豆'));
+    ui.dot = el('span', 'dot');           // 新版本红点
+    ui.tab.appendChild(ui.dot);
     ui.tab.title = '豆瓣简介 · 待粘贴链接（悬停或点击展开）';
     ui.tab.onclick = function () { pinned = true; setExpanded(true); };
     ui.tab.onmouseenter = function () {
@@ -887,7 +977,7 @@
 
     var hd = el('div', 'hd');
     hd.appendChild(el('span', 'ttl', '豆瓣简介'));
-    hd.appendChild(el('span', 'tagx', 'HDWing'));
+    hd.appendChild(el('span', 'tagx', 'HDWing · v' + SCRIPT_VERSION));
     var bMin = el('button', '', '—'); bMin.title = '收起';
     bMin.onclick = function () { setExpanded(false); };
     var bClose = el('button', '', '×'); bClose.title = '收起';
@@ -1025,7 +1115,17 @@
 
     ui.status = el('div', 'st', '粘贴豆瓣链接后点「生成」（Ctrl+Enter）');
     bd.appendChild(ui.status);
-    bd.appendChild(el('div', 'foot', '主演/导演由 credits + celebrities 两个接口合并，比单接口多一倍以上且带英文名；「主演」下拉可限制条数。打开详情页只会把链接自动填入输入框，点「生成」才请求豆瓣；生成后鼠标移开面板自动收起，进度看左上角「豆」的颜色。海报默认用 IMDb 图（豆瓣图床有防盗链）。首次使用请允许豆瓣跨域请求。'));
+
+    // 底部：版本号 + 新版本更新入口
+    var foot = el('div', 'foot');
+    ui.verLine = el('div', 'ver', 'v' + SCRIPT_VERSION + ' · 每周自动检查更新（点击立即检查）');
+    ui.verLine.title = '立即检查一次新版本';
+    ui.verLine.onclick = function () { status('正在检查更新…'); checkUpdate(true); };
+    ui.updLine = el('div', 'upd hide');
+    foot.appendChild(ui.verLine);
+    foot.appendChild(ui.updLine);
+    foot.appendChild(el('div', '', '打开页面只自动填链接、点「生成」才请求；生成后鼠标移开自动收起；进度看「豆」的颜色。'));
+    bd.appendChild(foot);
 
     document.addEventListener('keydown', function (e) {
       if (!expanded) return;
@@ -1306,6 +1406,9 @@
     autoRun: autoRun,
     isDetailPage: isDetailPage,
     attachImdbPoster: attachImdbPoster,
+    checkUpdate: checkUpdate,
+    isNewer: isNewer,
+    version: SCRIPT_VERSION,
     open: function () { if (!root) buildUI(); pinned = true; setExpanded(true); }
   };
 
@@ -1328,6 +1431,12 @@
     setExpanded(false); // 详情页默认收起，鼠标悬停左上角入口才展开
     setTimeout(function () { if (!dragged) positionWidgets(); }, 300);
     setTimeout(function () { autoRun(3); }, 450);
+    // 更新检测：先用上次缓存的结果点亮红点，再按周期满一次拉新
+    if (cfg.latestVersion && isNewer(cfg.latestVersion, SCRIPT_VERSION)) {
+      updateInfo = { version: cfg.latestVersion };
+    }
+    renderUpdateUI();
+    setTimeout(function () { checkUpdate(false); }, 1200);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
