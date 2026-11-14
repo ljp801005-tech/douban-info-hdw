@@ -2,7 +2,7 @@
 // @name         HDWing 详情页 · 豆瓣简介生成
 // @name:en      HDWing Detail · Douban Intro Generator
 // @namespace    https://github.com/techmovie/DouBan-Info-for-PT
-// @version      2.4.0
+// @version      2.4.1
 // @description  仅在 hdwing.org 种子详情页启用：手动粘贴豆瓣条目链接，点「生成」一键得到「◎片名 / ◎译名 / ◎导演 / ◎编剧 / ◎主演 / ◎简介」格式的简介。打开页面只把链接填进输入框、点「生成」才请求豆瓣，左上角只有一个「豆」入口、默认收起，底色即状态（灰=未取到链接 / 绿=已取到 / 蓝=读取中 / 红=失败），界面跟随站点 X2015 主题。
 // @author       WorkBuddy
 // @match        https://hdwing.org/*
@@ -69,6 +69,7 @@
     latin: true,
     imdb: true,
     linkStyle: 'bbcode',
+    introWrap: 44,         // 简介每行字宽自动折行：0=不折行（中文按1、英文按0.5计宽）
     actorCount: 0,         // 主演显示条数：0=全部
     autoFromPage: true,    // 打开详情页时自动把页面上的豆瓣/IMDb 链接填进输入框（不发请求）
     customImdb: '',
@@ -678,10 +679,50 @@
     return L.join('\n');
   }
 
+  // 简介按字宽折行：中文全角计 1，英文半角计 0.5；BBCode 标签、URL、连续英文词不拆断
+  function wrapIntroText(text, width) {
+    if (!text || !width) return text || '';
+    var out = [];
+    String(text).split(/\n/).forEach(function (para) {
+      var line = para.trim();
+      if (!line) { out.push(''); return; }
+      if (line.length * 0.5 <= width) { out.push(line); return; }  // 半角计宽都放得下，必然不用折
+      var toks = line.match(/\[[^\]\n]*\]|https?:\/\/[^\s\]]+|[A-Za-z0-9][A-Za-z0-9'\u00b7\.\-_/]*|\s+|[\u2e80-\u9fff\u3000-\u303f\uff00-\uffef]|./g) || [line];
+      var cur = '', curW = 0;
+      function w(t) {
+        var n = 0;
+        for (var i = 0; i < t.length; i++) {
+          var c = t.charCodeAt(i);
+          n += (c >= 0x2e80 && c <= 0x9fff) || (c >= 0x3000 && c <= 0x303f) || (c >= 0xff00 && c <= 0xffef) ? 1 : 0.5;
+        }
+        return n;
+      }
+      for (var i = 0; i < toks.length; i++) {
+        var t = toks[i];
+        if (/^\s+$/.test(t)) { cur += ' '; continue; }  // 行尾空格最后会 trim
+        var tw = w(t);
+        if (curW + tw > width && cur.trim()) {
+          out.push(cur.trim());
+          cur = ''; curW = 0;
+        }
+        cur += t; curW += tw;
+        if (/^[\u3001\u3002\uff0c\uff1b\uff1a\uff01\uff1f\u201d\u2019\u300b\uff09]/.test(t) && curW >= width - 1 && i < toks.length - 1) {
+          // 标点在行末且接近宽度，顺手断行
+        }
+      }
+      if (cur.trim()) out.push(cur.trim());
+    });
+    return out.join('\n');
+  }
+
   function buildDescription(info, c) {
     // 主演数量控制：0=全部
     if (c.actorCount > 0 && info.actors && info.actors.length > c.actorCount) {
       info = Object.assign({}, info, { actors: info.actors.slice(0, c.actorCount) });
+    }
+    // 简介折行：0=不折行
+    if (c.introWrap > 0 && info.intro) {
+      info = Object.assign({}, info, { intro: wrapIntroText(info.intro, c.introWrap) });
     }
     if (c.template === 'bbcode') return buildBBCode(info, c);
     if (c.template === 'markdown') return buildMarkdown(info, c);
@@ -906,6 +947,18 @@
     ui.actorCount.onchange = function () { cfg.actorCount = parseInt(ui.actorCount.value, 10) || 0; saveCfg(); regenerate(); };
     ui.actorWrap.appendChild(ui.actorCount);
     r2.appendChild(ui.actorWrap);
+
+    ui.wrapWrap = el('span', 'row');
+    ui.wrapWrap.appendChild(el('span', 'lb', '折行'));
+    ui.introWrap = document.createElement('select');
+    ui.introWrap.style.cssText = 'max-width:76px';
+    [[0, '不折'], [36, '36字'], [44, '44字'], [52, '52字']].forEach(function (o) {
+      var op = document.createElement('option'); op.value = o[0]; op.textContent = o[1]; ui.introWrap.appendChild(op);
+    });
+    ui.introWrap.value = String(cfg.introWrap == null ? 44 : cfg.introWrap);
+    ui.introWrap.onchange = function () { cfg.introWrap = parseInt(ui.introWrap.value, 10) || 0; saveCfg(); regenerate(); };
+    ui.wrapWrap.appendChild(ui.introWrap);
+    r2.appendChild(ui.wrapWrap);
     bd.appendChild(r2);
 
     var r3 = el('div', 'opts');
