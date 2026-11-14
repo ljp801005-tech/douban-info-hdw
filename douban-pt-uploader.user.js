@@ -2,7 +2,7 @@
 // @name         HDWing 详情页 · 豆瓣简介生成
 // @name:en      HDWing Detail · Douban Intro Generator
 // @namespace    https://github.com/techmovie/DouBan-Info-for-PT
-// @version      2.5.0
+// @version      2.5.1
 // @description  仅在 hdwing.org 种子详情页启用：手动粘贴豆瓣条目链接，点「生成」一键得到「◎片名 / ◎译名 / ◎导演 / ◎编剧 / ◎主演 / ◎简介」格式的简介。打开页面只把链接填进输入框、点「生成」才请求豆瓣，左上角只有一个「豆」入口、默认收起，底色即状态（灰=未取到链接 / 绿=已取到 / 蓝=读取中 / 红=失败），界面跟随站点 X2015 主题。每周自动检查新版本，有更新时图标出红点。
 // @updateURL    https://raw.githubusercontent.com/ljp801005-tech/douban-info-hdw/main/douban-pt-uploader.user.js
 // @downloadURL  https://raw.githubusercontent.com/ljp801005-tech/douban-info-hdw/main/douban-pt-uploader.user.js
@@ -64,7 +64,7 @@
 
   /* ======================== 版本与更新 ======================== */
 
-  var SCRIPT_VERSION = '2.5.0';
+  var SCRIPT_VERSION = '2.5.1';
   var UPDATE_URL = 'https://raw.githubusercontent.com/ljp801005-tech/douban-info-hdw/main/douban-pt-uploader.user.js';
   var CHECK_INTERVAL = 7 * 24 * 3600 * 1000;  // 每周检查一次
 
@@ -823,6 +823,10 @@
     --line:#cdd7e3; --line-2:#b9c5d3;
     --bg:#fbfcfd; --bg-2:#ffffff; --head:#f1f5f9;
     --text:#2f3a45; --muted:#6b7a89; --ok:#2e7d32; --err:#d9534f;
+    /* 毛玻璃层：面板底 / 输入控件底 / 玻璃边框高光 */
+    --glass:rgba(248,251,255,.78); --glass-2:rgba(255,255,255,.74);
+    --glass-line:rgba(255,255,255,.72); --glass-shadow:rgba(20,48,80,.26);
+    --hd-a:rgba(115,139,168,.88); --hd-b:rgba(93,118,145,.9);
     --radius:4px;}
   :host(.dark){
     --brand:#4aa8ff; --brand-d:#2f92f0;
@@ -830,7 +834,10 @@
     --db:#1fbe3a; --db-d:#16a02e; --db-line:#0c7a20;
     --line:#3d4a57; --line-2:#4a5765;
     --bg:#1d252d; --bg-2:#232c35; --head:#2a343e;
-    --text:#dfe6ed; --muted:#93a1ae; --ok:#67c47a; --err:#ff8a80;}
+    --text:#dfe6ed; --muted:#93a1ae; --ok:#67c47a; --err:#ff8a80;
+    --glass:rgba(28,37,46,.72); --glass-2:rgba(35,44,53,.62);
+    --glass-line:rgba(255,255,255,.16); --glass-shadow:rgba(0,0,0,.5);
+    --hd-a:rgba(60,76,92,.88); --hd-b:rgba(49,64,78,.9);}
   *{box-sizing:border-box}
   .tab,.panel{pointer-events:auto}
   /* 收起态入口：只有一个「豆」，底色即状态
@@ -867,25 +874,39 @@
     display:none;animation:dbBlink 1.4s ease-in-out infinite}
   .tab.upd .dot{display:block}
   @keyframes dbBlink{0%,100%{opacity:1}50%{opacity:.35}}
+  /* 毛玻璃面板：半透明底 + 背景模糊，透出站点内容又不失可读性 */
   .panel{position:fixed;z-index:2147483647;left:12px;top:96px;width:432px;max-width:calc(100vw - 24px);
     max-height:calc(100vh - 28px);
-    display:flex;flex-direction:column;background:var(--bg);color:var(--text);
-    border:1px solid var(--line-2);border-radius:var(--radius);
-    box-shadow:0 6px 22px rgba(0,0,0,.26);overflow:hidden;
+    display:flex;flex-direction:column;background:var(--glass);color:var(--text);
+    -webkit-backdrop-filter:blur(18px) saturate(165%);
+    backdrop-filter:blur(18px) saturate(165%);
+    border:1px solid var(--glass-line);border-radius:var(--radius);
+    box-shadow:0 8px 32px var(--glass-shadow),0 1px 0 rgba(255,255,255,.55) inset;overflow:hidden;
     font:12px/1.55 "Microsoft YaHei","PingFang SC",Tahoma,Verdana,sans-serif;
     opacity:0;transform:translateY(-6px);pointer-events:none;transition:opacity .16s,transform .16s}
+  /* 不支持 backdrop-filter 的浏览器：退回纯色，保证文字对比度 */
+  @supports not ((backdrop-filter:blur(2px)) or (-webkit-backdrop-filter:blur(2px))){
+    .panel{background:var(--bg);border-color:var(--line-2)}
+    .bd{background:var(--bg)}
+    input[type=text],select,textarea,.cand{background:var(--bg-2)}
+    .btn.sec{background:linear-gradient(180deg,var(--bg-2),var(--head))}
+    .hd{background:linear-gradient(180deg,var(--slate),var(--slate-d))}
+  }
   .panel.on{opacity:1;transform:none;pointer-events:auto}
   .hd{display:flex;align-items:center;gap:6px;padding:0 8px;height:32px;
-    background:linear-gradient(180deg,var(--slate),var(--slate-d));color:#fff;cursor:move;user-select:none}
+    background:linear-gradient(180deg,var(--hd-a),var(--hd-b));
+    -webkit-backdrop-filter:blur(12px) saturate(150%);
+    backdrop-filter:blur(12px) saturate(150%);
+    color:#fff;cursor:move;user-select:none}
   .hd .ttl{flex:1;font-weight:600;font-size:12px;letter-spacing:.3px}
   .hd .tagx{font-size:10px;font-weight:400;opacity:.75;margin-right:2px}
   .hd button{width:20px;height:20px;line-height:18px;text-align:center;background:rgba(255,255,255,.14);
     border:1px solid rgba(255,255,255,.22);border-radius:3px;color:#fff;font-size:13px;cursor:pointer;padding:0}
   .hd button:hover{background:rgba(255,255,255,.3)}
-  .bd{padding:10px;display:flex;flex-direction:column;gap:8px;background:var(--bg);overflow:auto}
+  .bd{padding:10px;display:flex;flex-direction:column;gap:8px;background:transparent;overflow:auto}
   .row{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
   .lb{color:var(--muted);font-size:11px;min-width:52px}
-  input[type=text],select,textarea{font:inherit;color:var(--text);background:var(--bg-2);
+  input[type=text],select,textarea{font:inherit;color:var(--text);background:var(--glass-2);
     border:1px solid var(--line);border-radius:3px;padding:5px 7px;outline:none;box-shadow:inset 0 1px 2px rgba(0,0,0,.04)}
   input[type=text]:focus,select:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0 0 2px rgba(0,131,255,.15)}
   input[type=text]{flex:1;min-width:120px}
@@ -894,18 +915,18 @@
     border-radius:3px;padding:5px 11px;cursor:pointer;white-space:nowrap;box-shadow:0 1px 2px rgba(0,0,0,.15)}
   .btn:hover{filter:brightness(1.07)}
   .btn:active{transform:translateY(1px)}
-  .btn.sec{background:linear-gradient(180deg,var(--bg-2),var(--head));color:var(--text);border-color:var(--line);box-shadow:none}
+  .btn.sec{background:var(--glass-2);color:var(--text);border-color:var(--line);box-shadow:none}
   .btn.sec:hover{background:var(--head)}
   .btn[disabled]{opacity:.5;filter:grayscale(.55) saturate(.35);cursor:not-allowed}
   .opts{display:flex;gap:8px;flex-wrap:wrap;font-size:11px;color:var(--text);padding:1px 0}
   .opts label{display:flex;align-items:center;gap:3px;cursor:pointer}
   .opts input{margin:0;vertical-align:-1px}
   textarea.pv{width:100%;height:196px;resize:vertical;font:11.5px/1.5 Consolas,Menlo,Monaco,"Courier New",monospace;
-    white-space:pre;tab-size:2;background:var(--bg-2)}
+    white-space:pre;tab-size:2;background:var(--glass-2)}
   .st{font-size:11px;color:var(--muted);min-height:16px;word-break:break-all;line-height:1.45}
   .st.ok{color:var(--ok)}.st.err{color:var(--err)}
   .cand{display:flex;flex-direction:column;max-height:132px;overflow:auto;border:1px solid var(--line);
-    border-radius:3px;background:var(--bg-2);padding:2px}
+    border-radius:3px;background:var(--glass-2);padding:2px}
   .cand a{font-size:11.5px;color:var(--brand);cursor:pointer;padding:3px 5px;text-decoration:none;border-radius:2px}
   .cand a:hover{background:var(--head)}
   .hide{display:none!important}
