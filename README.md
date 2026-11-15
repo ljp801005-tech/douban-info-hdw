@@ -2,7 +2,7 @@
 
 一个 Tampermonkey（油猴）用户脚本：在 **PT 站种子详情页**左上角显示一个「豆」字入口，自动读取页面上的豆瓣 / IMDb 链接，点「生成」一键输出 PT 发种常用的 `◎片名 / ◎译名 / ◎年代 / ◎产地 / ◎类别 / ◎语言 / ◎首播 / ◎豆瓣链接 / ◎集数 / ◎片长 / ◎导演 / ◎编剧 / ◎主演 / ◎简介` 格式简介，复制粘贴即可用。
 
-**一份脚本覆盖多个常用 PT 站**（HDWing、CHDBits、HDSky、OurBits、TTG、M-Team、HDHome、PTer、KeepFRDS、Audiences、TLF、HHanClub 等），界面会采样各站顶栏主色自动换色，深色站自动切深色毛玻璃。
+**一份脚本覆盖多个常用 PT 站**（HDWing、CHDBits、HDSky、OurBits、TTG、M-Team、HDHome、PTer、KeepFRDS、TLF、HHanClub 等），界面会采样各站顶栏主色自动换色，深色站自动切深色毛玻璃。
 
 不自动请求、不后台抓取，只在点「生成」时才访问豆瓣。
 
@@ -14,10 +14,10 @@
 | HDSky | `details.php?id=` | OurBits | `details.php?id=` |
 | TTG | `/t/{id}/` | M-Team | `details.php?id=` |
 | HDHome | `details.php?id=` | PTer | `details.php?id=` |
-| KeepFRDS（朋友） | `details.php?id=` | Audiences（观众） | `details.php?id=` |
-| TLF | `details.php?id=` | HHanClub（憨憨） | `details.php?id=` |
+| KeepFRDS（朋友） | `details.php?id=` | TLF | `details.php?id=` |
+| HHanClub（憨憨） | `details.php?id=` | | |
 
-域名清单（`@match`）：`hdwing.org`、`ptchdbits.co` / `chdbits.co` / `chdbits.org`、`hdsky.me`、`ourbits.club`、`totheglory.im`、`m-team.cc` / `m-team.io`、`hdhome.org`、`pterclub.net` / `pterclub.com`、`keepfrds.com`、`audiences.me`、`eastgame.org`（TLF）、`hhanclub.net`（含各站子域，如 `kp.m-team.cc`、`pt.keepfrds.com`、`pt.eastgame.org`）。
+域名清单（`@match`，一律用 `*` 遮蔽，避免给站点带来不必要的关注）：`hd***.org`、`pt***.co` / `ch***.co` / `ch***.org`、`hd***.me`、`ou***.club`、`to***.im`、`m-***.cc` / `m-***.io`、`hd***.org`、`pt***.net` / `pt***.com`、`ke***.com`、`ea***.org`、`hh***.net`（各站子域自动命中，无需单独登记）。
 
 ---
 
@@ -173,10 +173,11 @@
 
 ## 更新日志
 
-- **2.8.3** — 某站不支持对外宣传，界面与说明里不再标注其站名（标题栏只显示通用名 `PT`），域名匹配与全部功能保持不变
-- **2.8.2** — `eastgame.org` 站名更正为 TLF（面板标题栏显示 `TLF · v2.8.2`）
-- **2.8.1** — 站点范围收敛为用户指定清单，移除 HDChina、CMCT、HDRoute、PTHome、U2、BeiTai、JoyHD、HDAtmos、1PTBA、OpenCD、HDFans；同站的备用域名（`chdbits.co` / `chdbits.org`、`m-team.io`、`pterclub.com`）仍保留
-- **2.8.0** — 新增 KeepFRDS（朋友）、Audiences（观众）、TLF、HHanClub（憨憨）等站，PTer 补 `pterclub.net` 域名
+- **2.8.4** — 观众站同样从说明中移出；说明里的站点域名一律用 `*` 遮蔽，不再出现明文；界面标题栏对未标注站点只显示版本号
+- **2.8.3** — 某站不支持对外宣传，界面与说明里不再标注其站名（标题栏只显示版本号），域名匹配与全部功能保持不变
+- **2.8.2** — 某站站名更正为 TLF（面板标题栏显示 `TLF · v2.8.2`）
+- **2.8.1** — 站点范围收敛为用户指定清单，移除 HDChina、CMCT、HDRoute、PTHome、U2、BeiTai、JoyHD、HDAtmos、1PTBA、OpenCD、HDFans；同站的备用域名仍保留
+- **2.8.0** — 新增 KeepFRDS（朋友）、TLF、HHanClub（憨憨）等站，PTer 补一个备用域名
 - **2.7.0** — 扩展到 19 个 PT 站：内置站点登记表（域名 / 站名 / 详情页规则 / 主色），标题栏显示当前站名；运行时采样站点顶栏主色自动换色，深色站自动切深色玻璃；支持 TTG 的 `/t/{id}/` 路径式详情页，移除 `@noframes` 以便框架式站点可用；非登记域名与编辑 / 评论 / 列表页一律不介入
 - **2.6.1** — 健壮性复核：豆瓣条目读取失败自动退回 IMDb 数据；连续点生成时旧请求不再覆盖新结果；页面裸 tt 号仅在唯一时采用，避免误取；「打开」按钮正确处理 IMDb 输入
 - **2.6.0** — 无豆瓣链接时粘贴 IMDb 链接也能生成：多片名反查豆瓣（年份/别名/类型打分），匹配不到直接用 IMDb 数据出完整简介并列出豆瓣候选；修复 suggestion 接口拿错片；支持裸 tt 号 / m.imdb.com 等写法
