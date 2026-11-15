@@ -2,8 +2,8 @@
 // @name         HDWing 详情页 · 豆瓣简介生成
 // @name:en      HDWing Detail · Douban Intro Generator
 // @namespace    https://github.com/techmovie/DouBan-Info-for-PT
-// @version      2.5.1
-// @description  仅在 hdwing.org 种子详情页启用：手动粘贴豆瓣条目链接，点「生成」一键得到「◎片名 / ◎译名 / ◎导演 / ◎编剧 / ◎主演 / ◎简介」格式的简介。打开页面只把链接填进输入框、点「生成」才请求豆瓣，左上角只有一个「豆」入口、默认收起，底色即状态（灰=未取到链接 / 绿=已取到 / 蓝=读取中 / 红=失败），界面跟随站点 X2015 主题。每周自动检查新版本，有更新时图标出红点。
+// @version      2.6.0
+// @description  仅在 hdwing.org 种子详情页启用：粘贴豆瓣条目链接，点「生成」一键得到「◎片名 / ◎译名 / ◎导演 / ◎编剧 / ◎主演 / ◎简介」格式的简介。没有豆瓣链接时粘贴 IMDb 链接同样可生成（先反查豆瓣，匹配不到直接用 IMDb 数据出简介）。打开页面只把链接填进输入框、点「生成」才请求，左上角只有一个「豆」入口、默认收起，底色即状态，毛玻璃界面，每周自动检查新版本。
 // @updateURL    https://raw.githubusercontent.com/ljp801005-tech/douban-info-hdw/main/douban-pt-uploader.user.js
 // @downloadURL  https://raw.githubusercontent.com/ljp801005-tech/douban-info-hdw/main/douban-pt-uploader.user.js
 // @author       WorkBuddy
@@ -21,6 +21,9 @@
 // @connect      *.douban.com
 // @connect      *.doubanio.com
 // @connect      v3.sg.media-imdb.com
+// @connect      v3-cinemeta.strem.io
+// @connect      cinemeta-live.strem.io
+// @connect      images.metahub.space
 // @connect      raw.githubusercontent.com
 // @run-at       document-idle
 // @noframes
@@ -33,8 +36,13 @@
  *  3. www.douban.com/doubanapp//h5/movie/{id}/desc          编剧 / 集数 / 首播 / 每集
  *  4. .../rexxar/api/v2/movie/{id}/credits                  演职员英文名 latin_name（固定仅 8 条）
  *  5. movie.douban.com/subject/{id}/                        完整编剧 + IMDb（需登录态，失败静默）
- *  6. v3.sg.media-imdb.com/suggestion/x/{片名}.json          IMDb 官方搜索建议，免费补 tt 号
- *  7. movie.douban.com/j/subject_suggest?q=片名              按片名找条目
+ *  6. v3.sg.media-imdb.com/suggestion/{t|x}/{tt|片名}.json  IMDb 官方建议，免费无 key
+ *  7. v3-cinemeta.strem.io/meta/{movie|series}/{tt}.json    IMDb 号直取剧情/演职员/类型/海报（免 key）
+ *  8. movie.douban.com/j/subject_suggest?q=片名              按片名找条目
+ *
+ * 只有 IMDb 链接时：IMDb 建议 + Cinemeta 取片名 → 多写法搜豆瓣（年份/中文名/英文别名/类型打分）
+ *   → 命中则走上述完整豆瓣链路；没命中就用 IMDb 数据直接拼一份简介，并列出豆瓣候选供手选。
+ * 注意：suggestion/t/{tt}.json 是模糊搜索，返回结果里必须按 id 精确筛出目标那条。
  *
  * 已排除：frodo.douban.com App 接口（需授权 apiKey，实测 invalid_apikey）、
  *        rexxar .../credits 分页参数（无效，恒返 8 条）。
@@ -64,7 +72,7 @@
 
   /* ======================== 版本与更新 ======================== */
 
-  var SCRIPT_VERSION = '2.5.1';
+  var SCRIPT_VERSION = '2.6.0';
   var UPDATE_URL = 'https://raw.githubusercontent.com/ljp801005-tech/douban-info-hdw/main/douban-pt-uploader.user.js';
   var CHECK_INTERVAL = 7 * 24 * 3600 * 1000;  // 每周检查一次
 
@@ -89,7 +97,7 @@
   };
 
   var cfg = loadCfg();
-  var lastInfo = null, lastRaw = null, lastId = '';
+  var lastInfo = null, lastRaw = null, lastId = '', lastImdbBundle = null;
 
   function loadCfg() {
     var out = {};
@@ -210,15 +218,20 @@
         if (m) return m[0];
       }
     } catch (e) { /* ignore */ }
-    var per = String(document.body ? document.body.innerHTML : '').match(/imdb\.com\/title\/(tt\d{6,10})/);
-    return per ? per[1] : '';
+    var html = pageHtml();
+    var per = html.match(/imdb\.com\/title\/(tt\d{6,10})/i) || html.match(/\b(tt\d{6,10})\b/i);
+    return per ? per[1].toLowerCase() : '';
   }
 
-  // IMDb 单条元数据（官方 suggestion 支持 tt 号直查，免费无 key）
+  // IMDb suggestion 的 t/ 接口其实是「按字符串模糊搜索」，d[0] 未必是目标影片，
+  // 必须按 id 精确挑出目标那条，否则会拿错片名、反查到错误条目。
   function imdbMeta(tt) {
     return request('https://v3.sg.media-imdb.com/suggestion/t/' + tt + '.json', { referer: 'https://www.imdb.com/' })
       .then(function (t) {
-        var d = parseJSON(t), x = d && Array.isArray(d.d) ? d.d[0] : null;
+        var d = parseJSON(t), arr = (d && Array.isArray(d.d)) ? d.d : [];
+        var x = arr.filter(function (a) {
+          return String((a && a.id) || '').toLowerCase() === String(tt).toLowerCase();
+        })[0];
         if (!x) return null;
         return {
           id: x.id || tt, title: x.l || '', year: x.y || '', cast: x.s || '',
@@ -228,24 +241,129 @@
       }).catch(function () { return null; });
   }
 
-  // 只有 IMDb 号时：IMDb 取片名 → 豆瓣搜索 → 按年份/片名打分挑最像的
-  function findDoubanByImdb(tt) {
-    return imdbMeta(tt).then(function (m) {
-      if (!m || !m.title) return null;
-      return suggest(m.title).then(function (items) {
-        if (!items.length) return null;
-        var best = null, bestScore = -1, q = m.title.toLowerCase();
-        items.forEach(function (it) {
-          var s = 0, t1 = String(it.title || '').toLowerCase();
-          if (m.year && String(it.year) === String(m.year)) s += 3;
-          if (t1 && t1 === q) s += 2;
-          else if (t1 && q && (t1.indexOf(q) >= 0 || q.indexOf(t1) >= 0)) s += 1;
-          if (m.isTv === (String(it.type || '') === 'tv')) s += 1;
-          if (s > bestScore) { bestScore = s; best = it; }
-        });
-        return bestScore >= 3 ? best : null;
+  // Stremio Cinemeta 公共元数据（免 key）：片名/年份/剧情/导演/编剧/演员/类型/片长/海报/IMDb 评分
+  // movie 与 series 两个端点都问一次，谁字段全用谁（剧集 series 端点才带分集）
+  function cinemeta(tt) {
+    var urls = [
+      'https://v3-cinemeta.strem.io/meta/movie/' + tt + '.json',
+      'https://v3-cinemeta.strem.io/meta/series/' + tt + '.json'
+    ];
+    return Promise.all(urls.map(function (u) { return request(u); })).then(function (rs) {
+      var best = null;
+      rs.forEach(function (t) {
+        var d = parseJSON(t), m = d && d.meta;
+        if (!m || !m.name) return;
+        var score = (m.description ? 5 : 0) +
+                    (Array.isArray(m.cast) ? Math.min(m.cast.length, 10) : 0) +
+                    (Array.isArray(m.videos) ? 2 : 0) + (m.runtime ? 1 : 0);
+        if (!best || score > best.score) best = { m: m, score: score };
       });
+      return best ? best.m : null;
     }).catch(function () { return null; });
+  }
+
+  function imdbBundle(tt) {
+    return Promise.all([imdbMeta(tt), cinemeta(tt)]).then(function (r) {
+      return { im: r[0], cm: r[1] };
+    });
+  }
+
+  // 一个 tt 号能拿到多个片名写法，逐个去豆瓣搜，命中率比只搜 IMDb 标题高得多
+  function imdbQueries(im, cm) {
+    var out = [], seen = {};
+    function add(s) {
+      s = String(s || '').replace(/\s+/g, ' ').trim();
+      if (s.length < 2 || seen[s.toLowerCase()]) return;
+      seen[s.toLowerCase()] = 1; out.push(s);
+    }
+    if (im) {
+      add(im.title);
+      add(String(im.title || '').replace(/^(the|a|an)\s+/i, ''));
+      var w = String(im.title || '').split(/\s+/);
+      if (w.length > 4) add(w.slice(0, 3).join(' '));
+    }
+    if (cm) {
+      add(cm.name);
+      var slug = String(cm.slug || '').split('/').pop() || '';
+      add(slug.replace(/-\d{4,}$/, '').replace(/-/g, ' '));
+      add(String(cm.name || '').replace(/^(the|a|an)\s+/i, ''));
+    }
+    return out.slice(0, 5);
+  }
+
+  // 豆瓣 suggest 返回的是中文片名 + sub_title（往往是英文原名），两列都要比
+  function imdbMatchScore(it, q, im, cm) {
+    var s = 0;
+    var title = String(it.title || '').toLowerCase();
+    var sub = String(it.sub_title || '').toLowerCase();
+    var yr = String((cm && cm.year) || (im && im.year) || '').match(/(19|20)\d{2}/);
+    if (yr && String(it.year || '').indexOf(yr[0]) >= 0) s += 3;
+    if (sub && sub === q) s += 4;
+    else if (sub && (sub.indexOf(q) >= 0 || q.indexOf(sub) >= 0)) s += 2;
+    if (title && title === q) s += 3;
+    else if (title && (title.indexOf(q) >= 0 || q.indexOf(title) >= 0)) s += 2;
+    var isTv = !!(cm && cm.type === 'series') || !!(cm && cm.videos && cm.videos.length) || !!(im && im.isTv);
+    if ((String(it.type || '') === 'tv') === isTv) s += 1;
+    return s;
+  }
+
+  // 返回 { best, items, bundle }：best 是可信的豆瓣条目，items 是供手选的候选
+  function findDoubanByImdb(tt) {
+    return imdbBundle(tt).then(function (bundle) {
+      var qs = imdbQueries(bundle.im, bundle.cm);
+      if (!qs.length) return { best: null, items: [], bundle: bundle };
+      return Promise.all(qs.map(function (q) { return suggest(q); })).then(function (groups) {
+        var seen = {}, items = [];
+        groups.forEach(function (g) {
+          (g || []).forEach(function (it) {
+            if (it && it.id && !seen[it.id]) { seen[it.id] = 1; items.push(it); }
+          });
+        });
+        items.forEach(function (it) {
+          var sc = 0;
+          qs.forEach(function (q) {
+            sc = Math.max(sc, imdbMatchScore(it, q.toLowerCase(), bundle.im, bundle.cm));
+          });
+          it._score = sc;
+        });
+        items.sort(function (a, b) { return b._score - a._score; });
+        return {
+          best: (items.length && items[0]._score >= 5) ? items[0] : null,
+          items: items, bundle: bundle
+        };
+      });
+    }).catch(function () { return { best: null, items: [], bundle: { im: null, cm: null } }; });
+  }
+
+  // 豆瓣反查不到时，直接用 IMDb 数据拼一份完整 info，保证「有 IMDb 链接就能出简介」
+  function imdbOnlyInfo(tt, bundle) {
+    var im = bundle.im || {}, cm = bundle.cm || {};
+    var title = String(im.title || cm.name || '').trim();
+    var yr = String(cm.year || im.year || '').match(/(19|20)\d{2}/);
+    function people(a) {
+      return (Array.isArray(a) ? a : []).filter(Boolean).slice(0, 30).map(function (n) {
+        return { name: String(n), latin: '' };
+      });
+    }
+    var genres = Array.isArray(cm.genre) ? cm.genre : (Array.isArray(cm.genres) ? cm.genres : []);
+    var poster = im.imageUrl ? imdbPosterUrl(im.imageUrl)
+      : (cm.poster ? String(cm.poster).replace('/small/', '/medium/') : '');
+    return {
+      id: '', url: '', source: 'imdb',
+      title: title, originalTitle: '', aka: [],
+      year: yr ? yr[0] : String(im.year || ''),
+      countries: cm.country ? String(cm.country).split(/[,，]/).map(function (x) { return x.trim(); }).filter(Boolean) : [],
+      genres: genres.slice(0, 5), languages: [],
+      durations: cm.runtime ? [String(cm.runtime).replace(/(\d+)\s*min/i, '$1分钟')] : [],
+      pubdate: cm.released ? [String(cm.released).slice(0, 10)] : [],
+      episodes: (cm.videos && cm.videos.length) || 0,
+      isTv: cm.type === 'series' || !!(cm.videos && cm.videos.length) || !!im.isTv,
+      rating: { value: 0, count: 0 }, imdbRating: parseFloat(cm.imdbRating) || 0,
+      intro: String(cm.description || '').trim(),
+      poster: '', posterImdb: poster,
+      directors: people(cm.director), writers: people(cm.writer), actors: people(cm.cast),
+      imdb: tt, imdbUrl: 'https://www.imdb.com/title/' + tt + '/'
+    };
   }
 
   // 海报兜底：豆瓣图床有 Referer 校验（站点 no-referrer 时 418），IMDb 图可自由外链
@@ -333,10 +451,14 @@
   function parseInput(raw) {
     var s = String(raw || '').trim();
     if (!s) return null;
-    var tt = s.match(/(tt\d{6,10})/i);
-    if (tt && /imdb\.com|^tt\d/i.test(s)) return { imdb: tt[1].toLowerCase() };
+    // IMDb：完整链接 / m.imdb.com / 裸 tt 号 / "IMDb: tt1234567" 文本都认
+    var tt = s.match(/\b(tt\d{6,10})\b/i);
+    if (tt && (/imdb/i.test(s) || /\/title\//i.test(s) || /^\s*tt\d{6,10}\s*$/i.test(s))) {
+      return { imdb: tt[1].toLowerCase() };
+    }
     var m = s.match(/subject\/(\d+)/) || s.match(/^\/?(\d{6,10})\/?$/) || s.match(/[?&]id=(\d+)/);
     if (m) return { id: m[1] };
+    if (/imdb\.com/i.test(s)) return { error: '这个 IMDb 链接里没有 tt 编号，请复制影片页地址，形如 imdb.com/title/tt1234567/' };
     if (/^https?:\/\//i.test(s)) return { error: '这个链接里没有豆瓣条目 ID，需要 movie.douban.com/subject/数字/ 形式' };
     return { query: s };
   }
@@ -620,7 +742,9 @@
     if (dl) L.push(tag('豆瓣链接', dl));
     var rt = ratingText(info, c);
     if (rt) L.push(tag('豆瓣评分', rt));
-    if (c.imdb && imdbValue(info)) L.push(tag('IMDb', linkText(imdbValue(info), c.linkStyle === 'none' ? 'plain' : c.linkStyle)));
+    if (c.rating && info.imdbRating && !rt) L.push(tag('IMDb评分', info.imdbRating.toFixed(1) + '/10'));
+    if ((c.imdb || info.source === 'imdb') && imdbValue(info))
+      L.push(tag('IMDb', linkText(imdbValue(info), c.linkStyle === 'none' ? 'plain' : c.linkStyle)));
     if (info.isTv && info.episodes) L.push(tag('集数', String(info.episodes)));
     if (info.durations.length) L.push(tag('片长', join(info.durations)));
     if (info.directors.length) L.push(tag('导演', persons(info.directors, c)));
@@ -652,8 +776,9 @@
     ];
     var rt = ratingText(info, c);
     if (rt) f.push(['Douban Rating', rt]);
-    if (c.imdb && imdbValue(info)) f.push(['IMDb', imdbValue(info)]);
-    if (c.linkStyle !== 'none') f.push(['Douban', info.url]);
+    if (c.rating && info.imdbRating && !rt) f.push(['IMDb Rating', info.imdbRating.toFixed(1) + '/10']);
+    if ((c.imdb || info.source === 'imdb') && imdbValue(info)) f.push(['IMDb', imdbValue(info)]);
+    if (c.linkStyle !== 'none' && info.url) f.push(['Douban', info.url]);
     return f.filter(function (x) { return x[1]; });
   }
 
@@ -1013,7 +1138,7 @@
     var r1 = el('div', 'row');
     ui.url = document.createElement('input');
     ui.url.type = 'text';
-    ui.url.placeholder = '粘贴豆瓣链接 / 条目 ID / 片名';
+    ui.url.placeholder = '粘贴豆瓣 / IMDb 链接、条目 ID 或片名';
     ui.url.value = '';
     ui.url.onkeydown = function (e) { if (e.key === 'Enter') { e.preventDefault(); runGenerate(); } };
     r1.appendChild(ui.url);
@@ -1134,7 +1259,7 @@
     [ui.bCopy, ui.bOpen].forEach(function (b) { r5.appendChild(b); });
     bd.appendChild(r5);
 
-    ui.status = el('div', 'st', '粘贴豆瓣链接后点「生成」（Ctrl+Enter）');
+    ui.status = el('div', 'st', '粘贴豆瓣 / IMDb 链接后点「生成」（Enter）');
     bd.appendChild(ui.status);
 
     // 底部：版本号 + 新版本更新入口
@@ -1145,7 +1270,7 @@
     ui.updLine = el('div', 'upd hide');
     foot.appendChild(ui.verLine);
     foot.appendChild(ui.updLine);
-    foot.appendChild(el('div', '', '打开页面只自动填链接、点「生成」才请求；生成后鼠标移开自动收起；进度看「豆」的颜色。'));
+    foot.appendChild(el('div', '', '只自动填链接、点「生成」才请求；没有豆瓣链接时，粘贴 IMDb 链接也能生成简介（先反查豆瓣，匹配不到就用 IMDb 数据）。'));
     bd.appendChild(foot);
 
     document.addEventListener('keydown', function (e) {
@@ -1248,6 +1373,21 @@
   }
 
   function applyOverrides() {
+    // IMDb 直接生成的 info 没有 raw，手填项要在这里补
+    if (lastInfo && lastInfo.source === 'imdb') {
+      var manual = String(cfg.customImdb || '').trim(), mm = manual.match(/tt\d{6,10}/);
+      if (mm) { lastInfo.imdb = mm[0]; lastInfo.imdbUrl = 'https://www.imdb.com/title/' + mm[0] + '/'; }
+      var extra = String(cfg.customWriters || '').trim();
+      if (extra) {
+        var seen = {};
+        lastInfo.writers.forEach(function (p) { seen[p.name] = 1; });
+        splitPersons(extra).forEach(function (p) {
+          if (p.name && !seen[p.name]) { seen[p.name] = 1; lastInfo.writers.push(p); }
+        });
+      }
+      regenerate();
+      return;
+    }
     if (!lastRaw || !lastId) return;
     lastInfo = normalizeAll(lastId, lastRaw);
     regenerate();
@@ -1276,21 +1416,40 @@
     generate();
   }
 
-  function generate() {
+  function generate(imdbOverride) {
+    if (!imdbOverride) lastImdbBundle = null;
     var parsed = parseInput(ui.url.value);
-    if (!parsed) { status('先输入豆瓣链接、条目 ID 或片名', 'err'); return; }
+    if (!parsed) { status('先输入豆瓣链接、IMDb 链接、条目 ID 或片名', 'err'); return; }
     if (parsed.error) { status(parsed.error, 'err'); return; }
+    if (ui.bOpen) ui.bOpen.textContent = parsed.imdb ? '打开 IMDb' : '打开豆瓣';
     if (parsed.imdb) {
-      status('由 IMDb ' + parsed.imdb + ' 反查豆瓣条目…');
+      var tt = parsed.imdb;
+      cfg.lastUrl = ui.url.value.trim(); saveCfg();
+      ui.cand.classList.add('hide');
+      status('读取 IMDb ' + tt + ' 并反查豆瓣条目…');
       setTabState('busy', 'IMDb 反查…');
-      findDoubanByImdb(parsed.imdb).then(function (it) {
-        if (!it) {
-          status('IMDb ' + parsed.imdb + ' 没能匹配到豆瓣条目，请直接粘贴豆瓣链接', 'err');
-          setTabState('fail', 'IMDb 未匹配');
+      findDoubanByImdb(tt).then(function (r) {
+        if (r.best) {
+          lastImdbBundle = r.bundle;
+          ui.url.value = SUBJECT_URL.replace('{id}', r.best.id);
+          status('IMDb ' + tt + ' → 豆瓣《' + r.best.title + '》，正在读取完整条目…');
+          generate(tt);          // 命中豆瓣：走完整抓取链路，并把已知 tt 带下去
           return;
         }
-        ui.url.value = SUBJECT_URL.replace('{id}', it.id);
-        generate();
+        // 没匹配到可信豆瓣条目：用 IMDb 数据直接生成，绝不空手而归
+        if (!r.bundle.im && !r.bundle.cm) {
+          status('IMDb ' + tt + ' 的元数据也没取到（可能被网络拦截），请直接粘贴豆瓣链接', 'err');
+          setTabState('fail', 'IMDb 未取到数据');
+          return;
+        }
+        var info = imdbOnlyInfo(tt, r.bundle);
+        lastInfo = info; lastRaw = null; lastId = ''; lastImdbBundle = r.bundle;
+        ui.preview.value = buildDescription(info, cfg);
+        setTabState('ready', 'IMDb 数据已生成', '《' + info.title + '》· 由 IMDb 数据生成，展开查看');
+        status('IMDb ' + tt + ' 未匹配到豆瓣条目，已用 IMDb 数据生成《' + info.title + '》' +
+               (r.items.length ? '；下方候选条目可点选切换为豆瓣数据' : '；粘贴豆瓣链接可获得更全信息'), 'ok');
+        if (r.items.length) showCandidates(r.items.slice(0, 8));
+        else ui.cand.classList.add('hide');
       });
       return;
     }
@@ -1315,6 +1474,14 @@
         status('没拿到数据：请先在浏览器登录豆瓣并通过验证，再点「豆瓣」打开条目页后重试。', 'err');
         setTabState('fail', '未取到数据');
         return;
+      }
+      // 由 IMDb 反查进来：把已知的 tt 号、IMDb 海报直接补上，省掉二次匹配
+      if (imdbOverride) {
+        if (!info.imdb) info.imdb = imdbOverride;
+        var bi = lastImdbBundle && lastImdbBundle.im;
+        if (!info.posterImdb && bi && bi.imageUrl) info.posterImdb = imdbPosterUrl(bi.imageUrl);
+        var bc = lastImdbBundle && lastImdbBundle.cm;
+        if (bc && !info.intro && bc.description) info.intro = String(bc.description).trim();
       }
       lastInfo = info; lastRaw = raw; lastId = parsed.id;
       ui.preview.value = buildDescription(info, cfg);
@@ -1369,6 +1536,11 @@
     var p = parseInput(ui.url.value);
     var target = '';
     if (p && p.id) target = SUBJECT_URL.replace('{id}', p.id);
+    else if (lastInfo && lastInfo.source === 'imdb' && lastInfo.imdbUrl) {
+      gm.open(lastInfo.imdbUrl);
+      status('已打开 IMDb 影片页；找到豆瓣链接后粘贴进来可补全信息', 'ok');
+      return;
+    }
     else if (lastInfo && lastInfo.url) target = lastInfo.url;
     gm.open(target || 'https://movie.douban.com/');
     status('已打开豆瓣；通过验证后回来点「生成」', 'ok');
@@ -1400,8 +1572,8 @@
     if (tt) {
       autoDone = true;
       ui.url.value = 'https://www.imdb.com/title/' + tt + '/';
-      setTabState('ready', '已取到 IMDb 链接', '页面只有 IMDb 链接 ' + tt + '，展开后点「生成」反查豆瓣');
-      status('页面只有 IMDb 链接 ' + tt + '，已填入；点「生成」反查豆瓣条目');
+      setTabState('ready', '已取到 IMDb 链接', '页面只有 IMDb 链接 ' + tt + '，点「生成」反查豆瓣，匹配不到也能直接出简介');
+      status('页面只有 IMDb 链接 ' + tt + '，已填入；点「生成」即可生成简介');
       return;
     }
 
@@ -1424,6 +1596,12 @@
     imdbFromPage: imdbFromPage,
     pageGuessTitle: pageGuessTitle,
     imdbPosterUrl: imdbPosterUrl,
+    imdbMeta: imdbMeta,
+    cinemeta: cinemeta,
+    imdbBundle: imdbBundle,
+    findDoubanByImdb: findDoubanByImdb,
+    imdbOnlyInfo: imdbOnlyInfo,
+    generate: generate,
     autoRun: autoRun,
     isDetailPage: isDetailPage,
     attachImdbPoster: attachImdbPoster,
