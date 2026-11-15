@@ -2,8 +2,8 @@
 // @name         PT 站详情页 · 豆瓣简介生成
 // @name:en      PT Sites Detail · Douban Intro Generator
 // @namespace    https://github.com/techmovie/DouBan-Info-for-PT
-// @version      2.8.2
-// @description  仅在 PT 站种子详情页启用（HDWing / CHDBits / HDSky / OurBits / TTG / M-Team / HDHome / PTer / KeepFRDS / SpringSunday / Audiences / TLF / HHanClub 共 13 站）：粘贴豆瓣条目链接，点「生成」一键得到「◎片名 / ◎译名 / ◎导演 / ◎编剧 / ◎主演 / ◎简介」格式的简介。没有豆瓣链接时粘贴 IMDb 链接同样可生成（先反查豆瓣，匹配不到直接用 IMDb 数据出简介）。打开页面只把链接填进输入框、点「生成」才请求，左上角只有一个「豆」入口、默认收起，底色即状态，界面跟随各站主色、毛玻璃风格，每周自动检查新版本。
+// @version      2.8.3
+// @description  仅在 PT 站种子详情页启用（HDWing / CHDBits / HDSky / OurBits / TTG / M-Team / HDHome / PTer / KeepFRDS / Audiences / TLF / HHanClub 等 PT 站）：粘贴豆瓣条目链接，点「生成」一键得到「◎片名 / ◎译名 / ◎导演 / ◎编剧 / ◎主演 / ◎简介」格式的简介。没有豆瓣链接时粘贴 IMDb 链接同样可生成（先反查豆瓣，匹配不到直接用 IMDb 数据出简介）。打开页面只把链接填进输入框、点「生成」才请求，左上角只有一个「豆」入口、默认收起，底色即状态，界面跟随各站主色、毛玻璃风格，每周自动检查新版本。
 // @updateURL    https://raw.githubusercontent.com/ljp801005-tech/douban-info-hdw/main/douban-pt-uploader.user.js
 // @downloadURL  https://raw.githubusercontent.com/ljp801005-tech/douban-info-hdw/main/douban-pt-uploader.user.js
 // @author       WorkBuddy
@@ -86,7 +86,7 @@
 
   /* ======================== 版本与更新 ======================== */
 
-  var SCRIPT_VERSION = '2.8.2';
+  var SCRIPT_VERSION = '2.8.3';
   var UPDATE_URL = 'https://raw.githubusercontent.com/ljp801005-tech/douban-info-hdw/main/douban-pt-uploader.user.js';
   var CHECK_INTERVAL = 7 * 24 * 3600 * 1000;  // 每周检查一次
 
@@ -106,7 +106,8 @@
     { k: 'pter',    n: 'PTer',    h: ['pterclub.net', 'pterclub.com'],     a: '#3a7096' },
 
     { k: 'keepfrds', n: 'KeepFRDS', h: ['keepfrds.com'],                 a: '#3b6c9c' },
-    { k: 'ssd',      n: 'SpringSunday', h: ['springsunday.net'],          a: '#3f7a6a' },
+    // 低调站点：只做域名匹配与功能支持，不在界面/说明里标注站名
+    { k: 'pt',       n: 'PT',       h: ['springsunday.net'],              a: '#3f7a6a' },
     { k: 'aud',      n: 'Audiences', h: ['audiences.me'],                 a: '#4a5f96' },
     { k: 'tlf',      n: 'TLF',      h: ['eastgame.org'],                  a: '#3f6a8c' },
     { k: 'hhan',     n: 'HHanClub', h: ['hhanclub.net'],                  a: '#8c6a3f' }
