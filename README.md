@@ -1,8 +1,27 @@
-# HDWing 豆瓣简介生成 · Douban Info for HDWinG
+# PT 站豆瓣简介生成 · Douban Info for PT
 
-一个 Tampermonkey（油猴）用户脚本：在 **HDWinG（hdwing.org）种子详情页**左上角显示一个「豆」字入口，自动读取页面上的豆瓣 / IMDb 链接，点「生成」一键输出 PT 发种常用的 `◎片名 / ◎译名 / ◎年代 / ◎产地 / ◎类别 / ◎语言 / ◎首播 / ◎豆瓣链接 / ◎集数 / ◎片长 / ◎导演 / ◎编剧 / ◎主演 / ◎简介` 格式简介，复制粘贴即可用。
+一个 Tampermonkey（油猴）用户脚本：在 **PT 站种子详情页**左上角显示一个「豆」字入口，自动读取页面上的豆瓣 / IMDb 链接，点「生成」一键输出 PT 发种常用的 `◎片名 / ◎译名 / ◎年代 / ◎产地 / ◎类别 / ◎语言 / ◎首播 / ◎豆瓣链接 / ◎集数 / ◎片长 / ◎导演 / ◎编剧 / ◎主演 / ◎简介` 格式简介，复制粘贴即可用。
+
+**一份脚本覆盖 19 个常用 PT 站**（九个主流站 + U2、BeiTai、JoyHD、HDHome、HDAtmos、1PTBA、OpenCD、HDFans、PTer 等），界面会采样各站顶栏主色自动换色，深色站自动切深色毛玻璃。
 
 不自动请求、不后台抓取，只在点「生成」时才访问豆瓣。
+
+## 支持的站点
+
+| 站点 | 详情页 | 站点 | 详情页 |
+|---|---|---|---|
+| HDWing | `details.php?id=` | U2 | `details.php?id=` |
+| CHDBits | `details.php?id=` | BeiTai | `details.php?id=` |
+| HDChina | `details.php?id=` | JoyHD | `details.php?id=` |
+| HDSky | `details.php?id=` | HDHome | `details.php?id=` |
+| OurBits | `details.php?id=` | HDAtmos | `details.php?id=` |
+| TTG | `/t/{id}/` | 1PTBA | `details.php?id=` |
+| M-Team | `details.php?id=` | OpenCD | `details.php?id=` |
+| CMCT | `details.php?id=` | HDFans | `details.php?id=` |
+| HDRoute | `details.php?id=` | PTer | `details.php?id=` |
+| PTHome | `details.php?id=` | | |
+
+域名清单（`@match`）：`hdwing.org`、`chdbits.co` / `ptchdbits.co` / `chdbits.org`、`hdchina.org`、`hdsky.me`、`ourbits.club`、`totheglory.im`、`m-team.cc` / `m-team.io`、`hdcmct.org` / `hdcmct.cc` / `hdcmct.co`、`hdroute.org`、`pthome.net` / `pthome.org`、`u2.dmhy.org`、`beitai.pt`、`joyhd.net`、`hdhome.org`、`hdatmos.club`、`1ptba.com`、`opencd.org`、`hdfans.org`、`pterclub.com`（含各站子域，如 `kp.m-team.cc`）。
 
 ---
 
@@ -39,7 +58,7 @@
 1. 浏览器安装 [Tampermonkey](https://www.tampermonkey.net/)（Chrome / Edge / Firefox 均可）；
 2. 下载本仓库的 [`douban-pt-uploader.user.js`](./douban-pt-uploader.user.js)，拖入浏览器；
    或复制其全部内容，在 Tampermonkey「管理面板 → ➕ 新建脚本」里粘贴后保存（Ctrl+S）；
-3. 打开任意 HDWinG 种子详情页（`details.php?id=xxx`），页面左上角出现「豆」字入口即安装成功；
+3. 打开任意受支持站点的种子详情页（多为 `details.php?id=xxx`，TTG 为 `/t/数字/`），页面左上角出现「豆」字入口即安装成功；
 4. **首次点「生成」时 Tampermonkey 会弹出跨域授权**（访问 `m.douban.com` 等），请选「**总是允许此域名**」，否则抓不到数据；IMDb 兜底会请求 `v3.sg.media-imdb.com`、`v3-cinemeta.strem.io`，每周更新检查会请求 `raw.githubusercontent.com`，同样允许即可。
 
 ## 使用教程
@@ -47,6 +66,8 @@
 ### 1. 入口与颜色状态
 
 详情页左上角只有一个 34×34 的「豆」字小方块，**底色就是状态**。展开后的面板为**毛玻璃质感**（半透明底 + 背景模糊，透出站点内容），标题栏与输入控件同步半透明；不支持 `backdrop-filter` 的浏览器会自动退回纯色背景，保证文字清晰。
+
+「豆」的默认底色和标题栏会**跟随当前站点主色**：脚本在页面加载时采样站点顶栏 / 菜单的颜色，取不到才用内置的站点主色兜底；深色站点会自动切成深色玻璃并加深主色，标题栏右侧显示站点名与版本号，如 `M-Team · v2.7.0`。
 
 | 颜色 | 含义 |
 |---|---|
@@ -151,11 +172,12 @@
 **Q：图标被站内公告条挡住？**
 脚本会自动检测固定 / 吸顶元素并逐档下移避让；仍被挡时可手动拖动面板。
 
-**Q：想用在其他 NexusPHP 站？**
-把脚本头部的 `@match https://hdwing.org/*` 改成目标站域名即可，逻辑是通用的。
+**Q：想用在没列出来的站？**
+在脚本头部加一行 `// @match *://*.域名/*`，再往 `SITES` 登记表里加一条 `{ k: '短标识', n: '站名', h: ['域名'], a: '#主色' }` 即可（主色只是兜底，运行时会优先采样站点真实顶栏色）。标准 NexusPHP 站（`details.php?id=`）不用改详情页规则；URL 结构特殊的站补一条 `d: [/正则/]`，id 在路径里的加 `pathId: true`。
 
 ## 更新日志
 
+- **2.7.0** — 扩展到 19 个 PT 站：内置站点登记表（域名 / 站名 / 详情页规则 / 主色），标题栏显示当前站名；运行时采样站点顶栏主色自动换色，深色站自动切深色玻璃；支持 TTG 的 `/t/{id}/` 路径式详情页，移除 `@noframes` 以便框架式站点可用；非登记域名与编辑 / 评论 / 列表页一律不介入
 - **2.6.1** — 健壮性复核：豆瓣条目读取失败自动退回 IMDb 数据；连续点生成时旧请求不再覆盖新结果；页面裸 tt 号仅在唯一时采用，避免误取；「打开」按钮正确处理 IMDb 输入
 - **2.6.0** — 无豆瓣链接时粘贴 IMDb 链接也能生成：多片名反查豆瓣（年份/别名/类型打分），匹配不到直接用 IMDb 数据出完整简介并列出豆瓣候选；修复 suggestion 接口拿错片；支持裸 tt 号 / m.imdb.com 等写法
 - **2.5.1** — 面板改为毛玻璃效果（半透明 + 背景模糊），标题栏/输入控件同步玻璃化，附纯色回退

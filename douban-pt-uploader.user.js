@@ -1,14 +1,37 @@
 // ==UserScript==
-// @name         HDWing 详情页 · 豆瓣简介生成
-// @name:en      HDWing Detail · Douban Intro Generator
+// @name         PT 站详情页 · 豆瓣简介生成
+// @name:en      PT Sites Detail · Douban Intro Generator
 // @namespace    https://github.com/techmovie/DouBan-Info-for-PT
-// @version      2.6.1
-// @description  仅在 hdwing.org 种子详情页启用：粘贴豆瓣条目链接，点「生成」一键得到「◎片名 / ◎译名 / ◎导演 / ◎编剧 / ◎主演 / ◎简介」格式的简介。没有豆瓣链接时粘贴 IMDb 链接同样可生成（先反查豆瓣，匹配不到直接用 IMDb 数据出简介）。打开页面只把链接填进输入框、点「生成」才请求，左上角只有一个「豆」入口、默认收起，底色即状态，毛玻璃界面，每周自动检查新版本。
+// @version      2.7.0
+// @description  仅在 PT 站种子详情页启用（HDWing / CHDBits / HDChina / HDSky / OurBits / TTG / M-Team / CMCT / HDRoute / PTHome / U2 / BeiTai / JoyHD / HDHome / HDAtmos / 1PTBA / OpenCD / HDFans / PTer 等）：粘贴豆瓣条目链接，点「生成」一键得到「◎片名 / ◎译名 / ◎导演 / ◎编剧 / ◎主演 / ◎简介」格式的简介。没有豆瓣链接时粘贴 IMDb 链接同样可生成（先反查豆瓣，匹配不到直接用 IMDb 数据出简介）。打开页面只把链接填进输入框、点「生成」才请求，左上角只有一个「豆」入口、默认收起，底色即状态，界面跟随各站主色、毛玻璃风格，每周自动检查新版本。
 // @updateURL    https://raw.githubusercontent.com/ljp801005-tech/douban-info-hdw/main/douban-pt-uploader.user.js
 // @downloadURL  https://raw.githubusercontent.com/ljp801005-tech/douban-info-hdw/main/douban-pt-uploader.user.js
 // @author       WorkBuddy
-// @match        https://hdwing.org/*
-// @match        http://hdwing.org/*
+// @match        *://*.hdwing.org/*
+// @match        *://*.chdbits.co/*
+// @match        *://*.ptchdbits.co/*
+// @match        *://*.chdbits.org/*
+// @match        *://*.hdchina.org/*
+// @match        *://*.hdsky.me/*
+// @match        *://*.ourbits.club/*
+// @match        *://*.totheglory.im/*
+// @match        *://*.m-team.cc/*
+// @match        *://*.m-team.io/*
+// @match        *://*.hdcmct.org/*
+// @match        *://*.hdcmct.cc/*
+// @match        *://*.hdcmct.co/*
+// @match        *://*.hdroute.org/*
+// @match        *://*.pthome.net/*
+// @match        *://*.pthome.org/*
+// @match        *://*.u2.dmhy.org/*
+// @match        *://*.beitai.pt/*
+// @match        *://*.joyhd.net/*
+// @match        *://*.hdhome.org/*
+// @match        *://*.hdatmos.club/*
+// @match        *://*.1ptba.com/*
+// @match        *://*.opencd.org/*
+// @match        *://*.hdfans.org/*
+// @match        *://*.pterclub.com/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
 // @grant        GM_setValue
@@ -26,7 +49,6 @@
 // @connect      images.metahub.space
 // @connect      raw.githubusercontent.com
 // @run-at       document-idle
-// @noframes
 // ==/UserScript==
 
 /*
@@ -72,9 +94,53 @@
 
   /* ======================== 版本与更新 ======================== */
 
-  var SCRIPT_VERSION = '2.6.1';
+  var SCRIPT_VERSION = '2.7.0';
   var UPDATE_URL = 'https://raw.githubusercontent.com/ljp801005-tech/douban-info-hdw/main/douban-pt-uploader.user.js';
   var CHECK_INTERVAL = 7 * 24 * 3600 * 1000;  // 每周检查一次
+
+  /* ======================== 站点登记表 ======================== */
+
+  // h：域名后缀匹配（kp.m-team.cc / bt.beitai.pt 这类子域自动命中）
+  // d：详情页规则，匹配 pathname + search；不写则用标准 NexusPHP 的 details.php?id=
+  // a：站点主色，仅作兜底——正常情况下会先采样页面自身的主色，取不到才用它
+  var SITES = [
+    { k: 'hdwing',  n: 'HDWing',  h: ['hdwing.org'],                       a: '#738ba8' },
+    { k: 'chdbits', n: 'CHDBits', h: ['chdbits.co', 'ptchdbits.co', 'chdbits.org'], a: '#2f5d8a' },
+    { k: 'hdchina', n: 'HDChina', h: ['hdchina.org'],                      a: '#3d6b9c' },
+    { k: 'hdsky',   n: 'HDSky',   h: ['hdsky.me'],                         a: '#3f7a5a' },
+    { k: 'ourbits', n: 'OurBits', h: ['ourbits.club'],                     a: '#3a5a8c' },
+    { k: 'ttg',     n: 'TTG',     h: ['totheglory.im'],                    a: '#4a6f9c', d: [/^\/t\/\d+/], pathId: true },
+    { k: 'mteam',   n: 'M-Team',  h: ['m-team.cc', 'm-team.io'],           a: '#2b4a6f', d: [/\/details\.php\/?(?:$|\?)/i, /\/detail\/\d+/] },
+    { k: 'cmct',    n: 'CMCT',    h: ['hdcmct.org', 'hdcmct.cc', 'hdcmct.co'], a: '#2e6b8f' },
+    { k: 'hdroute', n: 'HDRoute', h: ['hdroute.org'],                      a: '#3a6b8c' },
+    { k: 'pthome',  n: 'PTHome',  h: ['pthome.net', 'pthome.org'],         a: '#3c6b6b' },
+    { k: 'u2',      n: 'U2',      h: ['u2.dmhy.org'],                      a: '#4a7fa5' },
+    { k: 'beitai',  n: 'BeiTai',  h: ['beitai.pt'],                        a: '#39618c' },
+    { k: 'joyhd',   n: 'JoyHD',   h: ['joyhd.net'],                        a: '#3f6b8f' },
+    { k: 'hdhome',  n: 'HDHome',  h: ['hdhome.org'],                       a: '#3a6b9a' },
+    { k: 'hdatmos', n: 'HDAtmos', h: ['hdatmos.club'],                     a: '#3d6f8c' },
+    { k: '1ptba',   n: '1PTBA',   h: ['1ptba.com'],                        a: '#3a6f8c' },
+    { k: 'opencd',  n: 'OpenCD',  h: ['opencd.org'],                       a: '#3f7a9c' },
+    { k: 'hdfans',  n: 'HDFans',  h: ['hdfans.org'],                       a: '#3a6b8c' },
+    { k: 'pter',    n: 'PTer',    h: ['pterclub.com'],                     a: '#3a7096' }
+  ];
+
+  var NEXUS_DETAIL = [/\/details\.php\/?(?:$|\?)/i];
+
+  function findSite(hostName) {
+    var host = String(hostName || location.hostname || '').toLowerCase();
+    if (!host) return null;
+    for (var i = 0; i < SITES.length; i++) {
+      var s = SITES[i];
+      for (var j = 0; j < s.h.length; j++) {
+        var d = s.h[j];
+        if (host === d || host.slice(-(d.length + 1)) === '.' + d) return s;
+      }
+    }
+    return null;
+  }
+
+  var site = findSite();
 
   /* ======================== 配置 ======================== */
 
@@ -947,7 +1013,7 @@
   var host = null, root = null, ui = {}, dragged = false, expanded = false;
   var pinned = false, hoverTimer = 0, closeTimer = 0, suppressHover = 0;
 
-  // 贴合 HDWing X2015 主题：蓝灰 #738ba8 / 亮蓝 #0083ff / 浅蓝灰 #b9c5d3
+  // 默认配色沿用 NexusPHP 常见的蓝灰（各站实际主色在运行时采样后覆盖）
   var CSS = `
   :host{all:initial;position:fixed;inset:0 auto auto 0;width:0;height:0;
     z-index:2147483647;pointer-events:none;
@@ -1084,12 +1150,106 @@
     return Math.max(10, Math.round(bottom) + 10);
   }
 
+  /* ======================== 站点配色 ======================== */
+
+  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+
+  function parseColor(c) {
+    var m = String(c || '').match(/rgba?\(([^)]+)\)/);
+    if (!m) return null;
+    var n = m[1].split(',').map(function (x) { return parseFloat(x); });
+    if (n.length < 3 || isNaN(n[0]) || isNaN(n[1]) || isNaN(n[2])) return null;
+    if (n.length > 3 && n[3] < 0.4) return null;   // 太透明的不算数
+    return { r: n[0], g: n[1], b: n[2] };
+  }
+
+  function toHex(c) {
+    function h(v) { var s = clamp(Math.round(v), 0, 255).toString(16); return s.length < 2 ? '0' + s : s; }
+    return '#' + h(c.r) + h(c.g) + h(c.b);
+  }
+
+  function mixToward(c, w) {   // w>0 变亮，w<0 变暗
+    var to = w > 0 ? 255 : 0, t = Math.abs(w);
+    return { r: c.r + (to - c.r) * t, g: c.g + (to - c.g) * t, b: c.b + (to - c.b) * t };
+  }
+
+  function lightness(c) { return (0.299 * c.r + 0.587 * c.g + 0.114 * c.b) / 255; }
+
+  function colorfulness(c) {   // 饱和度近似：0 灰 / 1 纯色
+    var mx = Math.max(c.r, c.g, c.b), mn = Math.min(c.r, c.g, c.b);
+    return mx <= 0 ? 0 : (mx - mn) / mx;
+  }
+
+  function hexToRgb(hex) {
+    var h = String(hex || '').replace('#', '').trim();
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    if (h.length !== 6 || /[^0-9a-f]/i.test(h)) return null;
+    return { r: parseInt(h.slice(0, 2), 16), g: parseInt(h.slice(2, 4), 16), b: parseInt(h.slice(4, 6), 16) };
+  }
+
+  function rgbaStr(hex, a) {
+    var c = hexToRgb(hex) || { r: 115, g: 139, b: 168 };
+    return 'rgba(' + Math.round(c.r) + ',' + Math.round(c.g) + ',' + Math.round(c.b) + ',' + a + ')';
+  }
+
+
+  // 采样页面自身的主色（顶栏 / 菜单 / 表头），拿不到再退回登记表里的值
+  function accentFromPage() {
+    var ok = function (c) {
+      if (!c) return false;
+      var l = lightness(c), s = colorfulness(c);
+      return s >= 0.16 && l >= 0.1 && l <= 0.82;
+    };
+    var direct = ['#menu', '#header', '#top', '#nav', '#mb', '#navbar', '#site-header',
+                  'div.head', 'table.head', 'td.head', '.head', '.navbar', '.topbar', '.header'];
+    var i, c;
+    for (i = 0; i < direct.length; i++) {
+      var n = null;
+      try { n = document.querySelector(direct[i]); } catch (e) { continue; }
+      if (!n) continue;
+      c = parseColor(getComputedStyle(n).backgroundColor);
+      if (ok(c)) return toHex(c);
+    }
+    // 再扫一遍名字里带 head/menu/nav/top 的元素，只认铺满一行的横条
+    var list;
+    try {
+      list = document.querySelectorAll('[id*="head"],[class*="head"],[id*="menu"],[class*="menu"],[id*="nav"],[class*="nav"],[id*="top"],[class*="top"]');
+    } catch (e) { return ''; }
+    var vw = window.innerWidth || 1200;
+    for (i = 0; i < list.length && i < 80; i++) {
+      var el2 = list[i];
+      var r = el2.getBoundingClientRect ? el2.getBoundingClientRect() : null;
+      if (!r || r.width < vw * 0.45 || r.height < 16 || r.height > 140) continue;
+      c = parseColor(getComputedStyle(el2).backgroundColor);
+      if (ok(c)) return toHex(c);
+    }
+    return '';
+  }
+
+  var accentHex = '';
+
+  // 把主色写进 CSS 变量：入口/标题栏跟着站点主色走，深色主题下自动加深
+  function applySiteTheme() {
+    if (!root) return;
+    var a = accentHex || (site && site.a) || '#738ba8';
+    var base = hexToRgb(a) || { r: 115, g: 139, b: 168 };
+    var light = mixToward(base, lightness(base) > 0.7 ? -0.18 : 0.06);
+    var dark = mixToward(base, -0.42);
+    var st = document.createElement('style');
+    st.textContent =
+      ':host{--slate:' + toHex(light) + ';--slate-d:' + toHex(mixToward(light, -0.14)) + ';' +
+      '--hd-a:' + rgbaStr(toHex(light), 0.88) + ';--hd-b:' + rgbaStr(toHex(mixToward(light, -0.14)), 0.9) + '}' +
+      ':host(.dark){--slate:' + toHex(dark) + ';--slate-d:' + toHex(mixToward(dark, -0.12)) + ';' +
+      '--hd-a:' + rgbaStr(toHex(dark), 0.88) + ';--hd-b:' + rgbaStr(toHex(mixToward(dark, -0.12)), 0.9) + '}';
+    root.appendChild(st);
+  }
+
   function pageIsDark() {
     try {
-      var bg = getComputedStyle(document.body).backgroundColor;
-      var m = String(bg).match(/[\d.]+/g);
-      if (!m || m.length < 3) return false;
-      return (0.299 * +m[0] + 0.587 * +m[1] + 0.114 * +m[2]) < 120;
+      var c = parseColor(getComputedStyle(document.body).backgroundColor) ||
+              parseColor(getComputedStyle(document.documentElement).backgroundColor) ||
+              parseColor(getComputedStyle(document.body).color);
+      return c ? lightness(c) < 0.45 : false;
     } catch (e) { return false; }
   }
 
@@ -1104,6 +1264,9 @@
     var style = document.createElement('style');
     style.textContent = CSS;
     root.appendChild(style);
+    // 跟随当前站点主色（先采样页面，采样不到用登记表里的兜底色）
+    try { accentHex = accentFromPage(); } catch (e) { accentHex = ''; }
+    applySiteTheme();
 
     // 收起态：左上角醒目入口（悬停自动展开）
     ui.tab = el('div', 'tab');
@@ -1132,7 +1295,7 @@
 
     var hd = el('div', 'hd');
     hd.appendChild(el('span', 'ttl', '豆瓣简介'));
-    hd.appendChild(el('span', 'tagx', 'HDWing · v' + SCRIPT_VERSION));
+    hd.appendChild(el('span', 'tagx', (site ? site.n : 'PT') + ' · v' + SCRIPT_VERSION));
     var bMin = el('button', '', '—'); bMin.title = '收起';
     bMin.onclick = function () { setExpanded(false); };
     var bClose = el('button', '', '×'); bClose.title = '收起';
@@ -1645,6 +1808,10 @@
     generate: generate,
     autoRun: autoRun,
     isDetailPage: isDetailPage,
+    findSite: findSite,
+    accentFromPage: accentFromPage,
+    siteInfo: site,
+    sites: SITES,
     attachImdbPoster: attachImdbPoster,
     checkUpdate: checkUpdate,
     isNewer: isNewer,
@@ -1653,8 +1820,16 @@
   };
 
   function isDetailPage() {
-    if (!/\/details\.php$/i.test(location.pathname)) return false;
-    if (!/[?&]id=\d+/.test(location.search)) return false;
+    var s = site;
+    if (!s) return false;
+    var url = location.pathname + location.search + location.hash;
+    var rules = s.d || NEXUS_DETAIL, hit = false;
+    for (var i = 0; i < rules.length; i++) {
+      if (rules[i].test(url)) { hit = true; break; }
+    }
+    if (!hit) return false;
+    // 标准 NexusPHP 详情页必须带 id 参数；TTG 这类 id 在路径里的不强求
+    if (!s.pathId && !/[?&]id=\d+/.test(location.search)) return false;
     // 编辑 / 管理 / 评分类的带参模式一律不介入（避免在种子编辑页冒出来）
     if (/[?&](edit|takeedit|mod|comment|dllist|uploader|act=)/i.test(location.search)) return false;
     // 页面上已经渲染出编辑表单，说明处于编辑态
@@ -1664,9 +1839,22 @@
     return true;
   }
 
+  // 有些站（如 TTG）详情页在框架里，脚本要跟着进框架；但同域里只留一份入口
+  function frameOwner() {
+    try {
+      if (window.top === window) return true;
+      var td = window.top.document;
+      if (td && td.querySelector('[data-dbpt]')) return false;
+      return true;
+    } catch (e) { return false; }
+  }
+
   function boot() {
-    if (!/(^|\.)hdwing\.org$/i.test(location.host)) return;
+    if (!site) return;
     if (!isDetailPage()) return;
+    if (!frameOwner()) return;
+    // 同一页面已有实例（例如新旧版本同时装着）就不再重复注入，避免两个「豆」
+    if (document.querySelector('[data-dbpt]')) return;
     buildUI();
     setExpanded(false); // 详情页默认收起，鼠标悬停左上角入口才展开
     setTimeout(function () { if (!dragged) positionWidgets(); }, 300);
