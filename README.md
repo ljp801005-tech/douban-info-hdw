@@ -2,7 +2,7 @@
 
 一个 Tampermonkey（油猴）用户脚本：在 **PT 站种子详情页**左上角显示一个「豆」字入口，自动读取页面上的豆瓣 / IMDb 链接，点「生成」一键输出 PT 发种常用的 `◎片名 / ◎译名 / ◎年代 / ◎产地 / ◎类别 / ◎语言 / ◎首播 / ◎豆瓣链接 / ◎集数 / ◎片长 / ◎导演 / ◎编剧 / ◎主演 / ◎简介` 格式简介，复制粘贴即可用。
 
-**一份脚本覆盖 24 个常用 PT 站**（九个主流站 + U2、BeiTai、JoyHD、HDHome、HDAtmos、1PTBA、OpenCD、HDFans、PTer、KeepFRDS、SpringSunday、Audiences、EastGame、HHanClub），界面会采样各站顶栏主色自动换色，深色站自动切深色毛玻璃。
+**一份脚本覆盖 13 个常用 PT 站**（HDWing、CHDBits、HDSky、OurBits、TTG、M-Team、HDHome、PTer、KeepFRDS、SpringSunday、Audiences、EastGame、HHanClub），界面会采样各站顶栏主色自动换色，深色站自动切深色毛玻璃。
 
 不自动请求、不后台抓取，只在点「生成」时才访问豆瓣。
 
@@ -10,20 +10,15 @@
 
 | 站点 | 详情页 | 站点 | 详情页 |
 |---|---|---|---|
-| HDWing | `details.php?id=` | U2 | `details.php?id=` |
-| CHDBits | `details.php?id=` | BeiTai | `details.php?id=` |
-| HDChina | `details.php?id=` | JoyHD | `details.php?id=` |
-| HDSky | `details.php?id=` | HDHome | `details.php?id=` |
-| OurBits | `details.php?id=` | HDAtmos | `details.php?id=` |
-| TTG | `/t/{id}/` | 1PTBA | `details.php?id=` |
-| M-Team | `details.php?id=` | OpenCD | `details.php?id=` |
-| CMCT | `details.php?id=` | HDFans | `details.php?id=` |
-| HDRoute | `details.php?id=` | PTer | `details.php?id=` |
-| PTHome | `details.php?id=` | KeepFRDS（朋友） | `details.php?id=` |
-| SpringSunday（春天） | `details.php?id=` | Audiences（观众） | `details.php?id=` |
-| EastGame（龙族） | `details.php?id=` | HHanClub（憨憨） | `details.php?id=` |
+| HDWing | `details.php?id=` | CHDBits | `details.php?id=` |
+| HDSky | `details.php?id=` | OurBits | `details.php?id=` |
+| TTG | `/t/{id}/` | M-Team | `details.php?id=` |
+| HDHome | `details.php?id=` | PTer | `details.php?id=` |
+| KeepFRDS（朋友） | `details.php?id=` | SpringSunday（春天） | `details.php?id=` |
+| Audiences（观众） | `details.php?id=` | EastGame（龙族） | `details.php?id=` |
+| HHanClub（憨憨） | `details.php?id=` | | |
 
-域名清单（`@match`）：`hdwing.org`、`chdbits.co` / `ptchdbits.co` / `chdbits.org`、`hdchina.org`、`hdsky.me`、`ourbits.club`、`totheglory.im`、`m-team.cc` / `m-team.io`、`hdcmct.org` / `hdcmct.cc` / `hdcmct.co`、`hdroute.org`、`pthome.net` / `pthome.org`、`u2.dmhy.org`、`beitai.pt`、`joyhd.net`、`hdhome.org`、`hdatmos.club`、`1ptba.com`、`opencd.org`、`hdfans.org`、`pterclub.com` / `pterclub.net`、`keepfrds.com`、`springsunday.net`、`audiences.me`、`eastgame.org`、`hhanclub.net`（含各站子域，如 `kp.m-team.cc`、`pt.keepfrds.com`、`pt.eastgame.org`）。
+域名清单（`@match`，17 条）：`hdwing.org`、`ptchdbits.co` / `chdbits.co` / `chdbits.org`、`hdsky.me`、`ourbits.club`、`totheglory.im`、`m-team.cc` / `m-team.io`、`hdhome.org`、`pterclub.net` / `pterclub.com`、`keepfrds.com`、`springsunday.net`、`audiences.me`、`eastgame.org`、`hhanclub.net`（含各站子域，如 `kp.m-team.cc`、`pt.keepfrds.com`、`pt.eastgame.org`）。
 
 ---
 
@@ -69,7 +64,7 @@
 
 详情页左上角只有一个 34×34 的「豆」字小方块，**底色就是状态**。展开后的面板为**毛玻璃质感**（半透明底 + 背景模糊，透出站点内容），标题栏与输入控件同步半透明；不支持 `backdrop-filter` 的浏览器会自动退回纯色背景，保证文字清晰。
 
-「豆」的默认底色和标题栏会**跟随当前站点主色**：脚本在页面加载时采样站点顶栏 / 菜单的颜色，取不到才用内置的站点主色兜底；深色站点会自动切成深色玻璃并加深主色，标题栏右侧显示站点名与版本号，如 `M-Team · v2.8.0`。
+「豆」的默认底色和标题栏会**跟随当前站点主色**：脚本在页面加载时采样站点顶栏 / 菜单的颜色，取不到才用内置的站点主色兜底；深色站点会自动切成深色玻璃并加深主色，标题栏右侧显示站点名与版本号，如 `M-Team · v2.8.1`。
 
 | 颜色 | 含义 |
 |---|---|
@@ -179,6 +174,7 @@
 
 ## 更新日志
 
+- **2.8.1** — 站点范围收敛为用户指定清单：仅保留 13 站，移除 HDChina、CMCT、HDRoute、PTHome、U2、BeiTai、JoyHD、HDAtmos、1PTBA、OpenCD、HDFans；同站的备用域名（`chdbits.co` / `chdbits.org`、`m-team.io`、`pterclub.com`）仍保留
 - **2.8.0** — 新增 5 站：KeepFRDS（朋友）、SpringSunday（春天）、Audiences（观众）、EastGame（龙族）、HHanClub（憨憨），PTer 补 `pterclub.net` 域名，共 24 站
 - **2.7.0** — 扩展到 19 个 PT 站：内置站点登记表（域名 / 站名 / 详情页规则 / 主色），标题栏显示当前站名；运行时采样站点顶栏主色自动换色，深色站自动切深色玻璃；支持 TTG 的 `/t/{id}/` 路径式详情页，移除 `@noframes` 以便框架式站点可用；非登记域名与编辑 / 评论 / 列表页一律不介入
 - **2.6.1** — 健壮性复核：豆瓣条目读取失败自动退回 IMDb 数据；连续点生成时旧请求不再覆盖新结果；页面裸 tt 号仅在唯一时采用，避免误取；「打开」按钮正确处理 IMDb 输入

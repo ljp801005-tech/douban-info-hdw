@@ -2,8 +2,8 @@
 // @name         PT 站详情页 · 豆瓣简介生成
 // @name:en      PT Sites Detail · Douban Intro Generator
 // @namespace    https://github.com/techmovie/DouBan-Info-for-PT
-// @version      2.8.0
-// @description  仅在 PT 站种子详情页启用（HDWing / CHDBits / HDChina / HDSky / OurBits / TTG / M-Team / CMCT / HDRoute / PTHome / U2 / BeiTai / JoyHD / HDHome / HDAtmos / 1PTBA / OpenCD / HDFans / PTer / KeepFRDS / SpringSunday / Audiences / EastGame / HHanClub 等 24 站）：粘贴豆瓣条目链接，点「生成」一键得到「◎片名 / ◎译名 / ◎导演 / ◎编剧 / ◎主演 / ◎简介」格式的简介。没有豆瓣链接时粘贴 IMDb 链接同样可生成（先反查豆瓣，匹配不到直接用 IMDb 数据出简介）。打开页面只把链接填进输入框、点「生成」才请求，左上角只有一个「豆」入口、默认收起，底色即状态，界面跟随各站主色、毛玻璃风格，每周自动检查新版本。
+// @version      2.8.1
+// @description  仅在 PT 站种子详情页启用（HDWing / CHDBits / HDSky / OurBits / TTG / M-Team / HDHome / PTer / KeepFRDS / SpringSunday / Audiences / EastGame / HHanClub 共 13 站）：粘贴豆瓣条目链接，点「生成」一键得到「◎片名 / ◎译名 / ◎导演 / ◎编剧 / ◎主演 / ◎简介」格式的简介。没有豆瓣链接时粘贴 IMDb 链接同样可生成（先反查豆瓣，匹配不到直接用 IMDb 数据出简介）。打开页面只把链接填进输入框、点「生成」才请求，左上角只有一个「豆」入口、默认收起，底色即状态，界面跟随各站主色、毛玻璃风格，每周自动检查新版本。
 // @updateURL    https://raw.githubusercontent.com/ljp801005-tech/douban-info-hdw/main/douban-pt-uploader.user.js
 // @downloadURL  https://raw.githubusercontent.com/ljp801005-tech/douban-info-hdw/main/douban-pt-uploader.user.js
 // @author       WorkBuddy
@@ -11,26 +11,12 @@
 // @match        *://*.chdbits.co/*
 // @match        *://*.ptchdbits.co/*
 // @match        *://*.chdbits.org/*
-// @match        *://*.hdchina.org/*
 // @match        *://*.hdsky.me/*
 // @match        *://*.ourbits.club/*
 // @match        *://*.totheglory.im/*
 // @match        *://*.m-team.cc/*
 // @match        *://*.m-team.io/*
-// @match        *://*.hdcmct.org/*
-// @match        *://*.hdcmct.cc/*
-// @match        *://*.hdcmct.co/*
-// @match        *://*.hdroute.org/*
-// @match        *://*.pthome.net/*
-// @match        *://*.pthome.org/*
-// @match        *://*.u2.dmhy.org/*
-// @match        *://*.beitai.pt/*
-// @match        *://*.joyhd.net/*
 // @match        *://*.hdhome.org/*
-// @match        *://*.hdatmos.club/*
-// @match        *://*.1ptba.com/*
-// @match        *://*.opencd.org/*
-// @match        *://*.hdfans.org/*
 // @match        *://*.pterclub.com/*
 // @match        *://*.pterclub.net/*
 // @match        *://*.keepfrds.com/*
@@ -100,7 +86,7 @@
 
   /* ======================== 版本与更新 ======================== */
 
-  var SCRIPT_VERSION = '2.8.0';
+  var SCRIPT_VERSION = '2.8.1';
   var UPDATE_URL = 'https://raw.githubusercontent.com/ljp801005-tech/douban-info-hdw/main/douban-pt-uploader.user.js';
   var CHECK_INTERVAL = 7 * 24 * 3600 * 1000;  // 每周检查一次
 
@@ -111,24 +97,14 @@
   // a：站点主色，仅作兜底——正常情况下会先采样页面自身的主色，取不到才用它
   var SITES = [
     { k: 'hdwing',  n: 'HDWing',  h: ['hdwing.org'],                       a: '#738ba8' },
-    { k: 'chdbits', n: 'CHDBits', h: ['chdbits.co', 'ptchdbits.co', 'chdbits.org'], a: '#2f5d8a' },
-    { k: 'hdchina', n: 'HDChina', h: ['hdchina.org'],                      a: '#3d6b9c' },
+    { k: 'chdbits', n: 'CHDBits', h: ['ptchdbits.co', 'chdbits.co', 'chdbits.org'], a: '#2f5d8a' },
     { k: 'hdsky',   n: 'HDSky',   h: ['hdsky.me'],                         a: '#3f7a5a' },
     { k: 'ourbits', n: 'OurBits', h: ['ourbits.club'],                     a: '#3a5a8c' },
     { k: 'ttg',     n: 'TTG',     h: ['totheglory.im'],                    a: '#4a6f9c', d: [/^\/t\/\d+/], pathId: true },
     { k: 'mteam',   n: 'M-Team',  h: ['m-team.cc', 'm-team.io'],           a: '#2b4a6f', d: [/\/details\.php\/?(?:$|\?)/i, /\/detail\/\d+/] },
-    { k: 'cmct',    n: 'CMCT',    h: ['hdcmct.org', 'hdcmct.cc', 'hdcmct.co'], a: '#2e6b8f' },
-    { k: 'hdroute', n: 'HDRoute', h: ['hdroute.org'],                      a: '#3a6b8c' },
-    { k: 'pthome',  n: 'PTHome',  h: ['pthome.net', 'pthome.org'],         a: '#3c6b6b' },
-    { k: 'u2',      n: 'U2',      h: ['u2.dmhy.org'],                      a: '#4a7fa5' },
-    { k: 'beitai',  n: 'BeiTai',  h: ['beitai.pt'],                        a: '#39618c' },
-    { k: 'joyhd',   n: 'JoyHD',   h: ['joyhd.net'],                        a: '#3f6b8f' },
     { k: 'hdhome',  n: 'HDHome',  h: ['hdhome.org'],                       a: '#3a6b9a' },
-    { k: 'hdatmos', n: 'HDAtmos', h: ['hdatmos.club'],                     a: '#3d6f8c' },
-    { k: '1ptba',   n: '1PTBA',   h: ['1ptba.com'],                        a: '#3a6f8c' },
-    { k: 'opencd',  n: 'OpenCD',  h: ['opencd.org'],                       a: '#3f7a9c' },
-    { k: 'hdfans',  n: 'HDFans',  h: ['hdfans.org'],                       a: '#3a6b8c' },
-    { k: 'pter',    n: 'PTer',    h: ['pterclub.com', 'pterclub.net'],   a: '#3a7096' },
+    { k: 'pter',    n: 'PTer',    h: ['pterclub.net', 'pterclub.com'],     a: '#3a7096' },
+
     { k: 'keepfrds', n: 'KeepFRDS', h: ['keepfrds.com'],                 a: '#3b6c9c' },
     { k: 'ssd',      n: 'SpringSunday', h: ['springsunday.net'],          a: '#3f7a6a' },
     { k: 'aud',      n: 'Audiences', h: ['audiences.me'],                 a: '#4a5f96' },
