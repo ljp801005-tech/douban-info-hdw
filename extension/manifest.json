@@ -1,0 +1,67 @@
+{
+  "manifest_version": 3,
+  "name": "PT 站详情页 · 豆瓣简介生成",
+  "version": "2.9.0",
+  "description": "在 PT 站种子详情页左上角一键生成 ◎ 格式豆瓣简介：粘贴豆瓣或 IMDb 链接，自动抓取片名、演职员、剧情，复制即可发种。",
+  "minimum_chrome_version": "102",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": [
+    "storage",
+    "clipboardWrite",
+    "declarativeNetRequest"
+  ],
+  "host_permissions": [
+    "https://*.douban.com/*",
+    "https://*.doubanio.com/*",
+    "https://v3.sg.media-imdb.com/*",
+    "https://v3-cinemeta.strem.io/*",
+    "https://cinemeta-live.strem.io/*",
+    "https://images.metahub.space/*",
+    "https://raw.githubusercontent.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "豆瓣简介生成",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.hdwing.org/*",
+        "*://*.chdbits.co/*",
+        "*://*.ptchdbits.co/*",
+        "*://*.chdbits.org/*",
+        "*://*.hdsky.me/*",
+        "*://*.ourbits.club/*",
+        "*://*.totheglory.im/*",
+        "*://*.m-team.cc/*",
+        "*://*.m-team.io/*",
+        "*://*.hdhome.org/*",
+        "*://*.pterclub.com/*",
+        "*://*.pterclub.net/*",
+        "*://*.keepfrds.com/*",
+        "*://*.springsunday.net/*",
+        "*://*.audiences.me/*",
+        "*://*.eastgame.org/*",
+        "*://*.hhanclub.net/*"
+      ],
+      "js": [
+        "shim.js",
+        "content.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ]
+}

@@ -23,6 +23,10 @@
 
 ## 效果预览
 
+Chrome 扩展版（毛玻璃面板，标题栏右侧是站点名与版本号）：
+
+![扩展面板](docs/extension-preview.png)
+
 生成的简介（默认模板）：
 
 ```text
@@ -51,11 +55,35 @@
 
 ## 安装
 
+两种方式任选其一，**功能完全一样**（扩展就是同一份代码编译出来的，见文末「二次开发」）。
+
+### 方式一：Chrome / Edge 扩展（不用装油猴）
+
+1. 下载本仓库：右上角 **Code → Download ZIP** 解压，或 `git clone`；
+2. 地址栏打开 `chrome://extensions`（Edge 是 `edge://extensions`），打开右上角「**开发者模式**」；
+3. 点「**加载已解压的扩展程序**」，选中目录里的 **`extension`** 文件夹；
+4. 打开任意受支持站点的种子详情页（多为 `details.php?id=xxx`，TTG 为 `/t/数字/`），页面左上角出现「豆」字入口即成功。
+
+扩展版不会弹跨域授权（请求由扩展后台直接发出）。**更新**：重新下载覆盖 `extension` 目录，再到扩展管理页点一下「重新加载」；面板发现新版本时底部会出现红字入口，点它跳到本仓库的 `extension` 目录。
+
+### 方式二：Tampermonkey 油猴脚本
+
 1. 浏览器安装 [Tampermonkey](https://www.tampermonkey.net/)（Chrome / Edge / Firefox 均可）；
 2. 下载本仓库的 [`douban-pt-uploader.user.js`](./douban-pt-uploader.user.js)，拖入浏览器；
    或复制其全部内容，在 Tampermonkey「管理面板 → ➕ 新建脚本」里粘贴后保存（Ctrl+S）；
-3. 打开任意受支持站点的种子详情页（多为 `details.php?id=xxx`，TTG 为 `/t/数字/`），页面左上角出现「豆」字入口即安装成功；
+3. 打开任意受支持站点的种子详情页，左上角出现「豆」字入口即安装成功；
 4. **首次点「生成」时 Tampermonkey 会弹出跨域授权**（访问 `m.douban.com` 等），请选「**总是允许此域名**」，否则抓不到数据；IMDb 兜底会请求 `v3.sg.media-imdb.com`、`v3-cinemeta.strem.io`，每周更新检查会请求 `raw.githubusercontent.com`，同样允许即可。
+
+### 扩展版申请了哪些权限
+
+| 权限 | 用途 |
+|---|---|
+| 主机权限（豆瓣 / IMDb / Stremio / GitHub） | 后台代取条目数据、海报与版本号——扩展里没有油猴的跨域通道，不放行就只能被 CORS 拦掉 |
+| `declarativeNetRequest` | 只做一件事：给豆瓣请求补 `Referer`（豆瓣接口有校验，而 fetch 规范不允许脚本自己改 Referer） |
+| `storage` | 保存面板里的选项 |
+| `clipboardWrite` | 「复制简介」按钮 |
+
+扩展只在这些站点的**详情页**注入，列表页、编辑页、其它网站一律不介入；不上架应用商店，也不加载任何远程脚本。
 
 ## 使用教程
 
@@ -168,11 +196,26 @@
 **Q：图标被站内公告条挡住？**
 脚本会自动检测固定 / 吸顶元素并逐档下移避让；仍被挡时可手动拖动面板。
 
+**Q：扩展装上了，页面上没出现「豆」？**
+先确认三件事：加载的是 `extension` 目录（不是仓库根目录）、当前站点在支持列表里、当前页是**种子详情页**（`details.php?id=…`）而不是列表页或编辑页。改过脚本内容的话，记得先跑 `python3 tools/build-extension.py`，再到扩展页点「重新加载」。
+
 **Q：想用在没列出来的站？**
 在脚本头部加一行 `// @match *://*.域名/*`，再往 `SITES` 登记表里加一条 `{ k: '短标识', n: '站名', h: ['域名'], a: '#主色' }` 即可（主色只是兜底，运行时会优先采样站点真实顶栏色）。标准 NexusPHP 站（`details.php?id=`）不用改详情页规则；URL 结构特殊的站补一条 `d: [/正则/]`，id 在路径里的加 `pathId: true`。
 
+## 二次开发
+
+唯一的源文件是 `douban-pt-uploader.user.js`，**扩展目录里的 `content.js` 和 `manifest.json` 是自动生成的，不要手改**：
+
+```bash
+python3 tools/build-extension.py          # 重新生成 extension/content.js 与 extension/manifest.json
+python3 tools/build-extension.py --check  # 校验产物是否与源脚本一致（可挂 CI）
+```
+
+构建做的事：`@version / @match / @connect` → manifest 的版本号、注入规则、主机权限；正文外面套一层 `window.__DBPT_EXT.ready()`，等配置从 `chrome.storage` 读进内存再执行；`GM_*` 由 `extension/shim.js` 映射到 Chrome API（`GM_xmlhttpRequest` → 后台 fetch、`GM_openInTab` → `chrome.tabs.create`）；「安装更新」链接指向扩展目录而不是 `.user.js`。
+
 ## 更新日志
 
+- **2.9.0** — 新增 **Chrome / Edge 扩展版**（MV3）：同一份代码编译而来，不用装油猴即可使用；扩展后台代取豆瓣 / IMDb 数据并补 Referer，配置存 `chrome.storage`，面板与油猴版完全一致
 - **2.8.4** — 观众站同样从说明中移出；说明里的站点域名一律用 `*` 遮蔽，不再出现明文；界面标题栏对未标注站点只显示版本号
 - **2.8.3** — 某站不支持对外宣传，界面与说明里不再标注其站名（标题栏只显示版本号），域名匹配与全部功能保持不变
 - **2.8.2** — 某站站名更正为 TLF（面板标题栏显示 `TLF · v2.8.2`）

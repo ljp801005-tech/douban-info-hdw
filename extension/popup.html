@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>豆瓣简介生成</title>
+<style>
+  :root { color-scheme: light; }
+  body {
+    margin: 0; padding: 14px 16px 12px; width: 300px;
+    font: 13px/1.65 -apple-system, "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+    color: #2f3a45; background: #fbfcfd;
+  }
+  h1 { margin: 0 0 2px; font-size: 14px; font-weight: 700; }
+  .ver { color: #77879a; font-size: 11px; margin-bottom: 10px; }
+  ol { margin: 0 0 10px; padding-left: 18px; }
+  li { margin: 2px 0; }
+  .tip { color: #6b7a89; font-size: 12px; border-top: 1px dashed #d5dee8; padding-top: 9px; }
+  a { color: #0b6fbe; }
+  code {
+    font: 11.5px/1.4 ui-monospace, Menlo, Consolas, monospace;
+    background: #eef3f8; border-radius: 3px; padding: 0 3px; color: #2f3a45;
+  }
+  kbd {
+    font: 11px/1.4 ui-monospace, Menlo, Consolas, monospace;
+    background: #eef3f8; border: 1px solid #d5dee8; border-radius: 3px;
+    padding: 0 4px;
+  }
+</style>
+</head>
+<body>
+  <h1>豆 · 豆瓣简介生成</h1>
+  <div class="ver">扩展版 <span id="ver">—</span></div>
+  <ol>
+    <li>打开受支持的 PT 站<strong>种子详情页</strong>（多为 <code>details.php?id=…</code>）</li>
+    <li>左上角出现「豆」字入口，悬停展开面板</li>
+    <li>粘贴豆瓣或 IMDb 链接，点「生成」</li>
+    <li><kbd>Ctrl</kbd>+<kbd>Enter</kbd> 也能生成，复制后粘进发种页</li>
+  </ol>
+  <div class="tip">
+    只在详情页出现，列表页和编辑页不会打扰；打开页面不联网，点「生成」才请求豆瓣。
+    <br>详细说明见 <a href="https://github.com/ljp801005-tech/douban-info-hdw" target="_blank" rel="noreferrer">项目 README</a>。
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
