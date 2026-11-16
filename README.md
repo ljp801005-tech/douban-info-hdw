@@ -59,12 +59,19 @@ Chrome 扩展版（毛玻璃面板，标题栏右侧是站点名与版本号）�
 
 ### 方式一：Chrome / Edge 扩展（不用装油猴）
 
-1. 下载本仓库：右上角 **Code → Download ZIP** 解压，或 `git clone`；
+**推荐直接下打包好的扩展包**，不用碰仓库其它文件：
+
+> 下载地址：<https://github.com/ljp801005-tech/douban-info-hdw/releases/latest/download/douban-pt-extension.zip>
+> （或仓库里的 [`dist/douban-pt-extension.zip`](./dist/douban-pt-extension.zip)，两者内容相同）
+
+1. 下载上面的 zip，**解压**成一个文件夹；
 2. 地址栏打开 `chrome://extensions`（Edge 是 `edge://extensions`），打开右上角「**开发者模式**」；
-3. 点「**加载已解压的扩展程序**」，选中目录里的 **`extension`** 文件夹；
+3. 点「**加载已解压的扩展程序**」，选中**解压出来的那个文件夹**（里面直接就是 `manifest.json`，没有多套一层）；
 4. 打开任意受支持站点的种子详情页（多为 `details.php?id=xxx`，TTG 为 `/t/数字/`），页面左上角出现「豆」字入口即成功。
 
-扩展版不会弹跨域授权（请求由扩展后台直接发出）。**更新**：重新下载覆盖 `extension` 目录，再到扩展管理页点一下「重新加载」；面板发现新版本时底部会出现红字入口，点它跳到本仓库的 `extension` 目录。
+**注意**：Chrome 只接受"已解压的目录"，zip 不能直接拖进扩展页，也没法像 `.crx` 那样双击安装——zip 只是方便传输，必须先解压。
+
+扩展版不会弹跨域授权（请求由扩展后台直接发出）。**更新**：重新下载新包，解压后覆盖原文件夹内容，再到扩展管理页点「重新加载」；面板发现新版本时底部会出现红字入口，点它跳到下载页。
 
 ### 方式二：Tampermonkey 油猴脚本
 
@@ -208,13 +215,17 @@ Chrome 扩展版（毛玻璃面板，标题栏右侧是站点名与版本号）�
 
 ```bash
 python3 tools/build-extension.py          # 重新生成 extension/content.js 与 extension/manifest.json
+python3 tools/build-extension.py --zip    # 再打一个 dist/douban-pt-extension.zip（发给别人用）
 python3 tools/build-extension.py --check  # 校验产物是否与源脚本一致（可挂 CI）
 ```
+
+`dist/douban-pt-extension.zip` 内**根目录就是扩展根目录**（`manifest.json` 在顶层，没有外层文件夹），解压后直接选它加载；文件名不写版本号，版本以 `manifest.json` 为准，所以 README 与 Release 可以用恒定链接。
 
 构建做的事：`@version / @match / @connect` → manifest 的版本号、注入规则、主机权限；正文外面套一层 `window.__DBPT_EXT.ready()`，等配置从 `chrome.storage` 读进内存再执行；`GM_*` 由 `extension/shim.js` 映射到 Chrome API（`GM_xmlhttpRequest` → 后台 fetch、`GM_openInTab` → `chrome.tabs.create`）；「安装更新」链接指向扩展目录而不是 `.user.js`。
 
 ## 更新日志
 
+- **2.9.1** — 仓库与 Release 直接提供打包好的 `douban-pt-extension.zip`（根目录即扩展根，解压即可加载）；构建脚本加 `--zip`
 - **2.9.0** — 新增 **Chrome / Edge 扩展版**（MV3）：同一份代码编译而来，不用装油猴即可使用；扩展后台代取豆瓣 / IMDb 数据并补 Referer，配置存 `chrome.storage`，面板与油猴版完全一致
 - **2.8.4** — 观众站同样从说明中移出；说明里的站点域名一律用 `*` 遮蔽，不再出现明文；界面标题栏对未标注站点只显示版本号
 - **2.8.3** — 某站不支持对外宣传，界面与说明里不再标注其站名（标题栏只显示版本号），域名匹配与全部功能保持不变

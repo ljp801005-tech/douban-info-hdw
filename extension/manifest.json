@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "PT 站详情页 · 豆瓣简介生成",
-  "version": "2.9.0",
+  "version": "2.9.1",
   "description": "在 PT 站种子详情页左上角一键生成 ◎ 格式豆瓣简介：粘贴豆瓣或 IMDb 链接，自动抓取片名、演职员、剧情，复制即可发种。",
   "minimum_chrome_version": "102",
   "icons": {

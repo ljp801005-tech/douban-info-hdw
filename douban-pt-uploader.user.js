@@ -2,7 +2,7 @@
 // @name         PT 站详情页 · 豆瓣简介生成
 // @name:en      PT Sites Detail · Douban Intro Generator
 // @namespace    https://github.com/techmovie/DouBan-Info-for-PT
-// @version      2.9.0
+// @version      2.9.1
 // @description  仅在 PT 站种子详情页启用（HDWing / CHDBits / HDSky / OurBits / TTG / M-Team / HDHome / PTer / KeepFRDS / TLF / HHanClub 等 PT 站）：粘贴豆瓣条目链接，点「生成」一键得到「◎片名 / ◎译名 / ◎导演 / ◎编剧 / ◎主演 / ◎简介」格式的简介。没有豆瓣链接时粘贴 IMDb 链接同样可生成（先反查豆瓣，匹配不到直接用 IMDb 数据出简介）。打开页面只把链接填进输入框、点「生成」才请求，左上角只有一个「豆」入口、默认收起，底色即状态，界面跟随各站主色、毛玻璃风格，每周自动检查新版本。
 // @updateURL    https://raw.githubusercontent.com/ljp801005-tech/douban-info-hdw/main/douban-pt-uploader.user.js
 // @downloadURL  https://raw.githubusercontent.com/ljp801005-tech/douban-info-hdw/main/douban-pt-uploader.user.js
@@ -86,7 +86,7 @@
 
   /* ======================== 版本与更新 ======================== */
 
-  var SCRIPT_VERSION = '2.9.0';
+  var SCRIPT_VERSION = '2.9.1';
   var UPDATE_URL = 'https://raw.githubusercontent.com/ljp801005-tech/douban-info-hdw/main/douban-pt-uploader.user.js';
   var CHECK_INTERVAL = 7 * 24 * 3600 * 1000;  // 每周检查一次
 

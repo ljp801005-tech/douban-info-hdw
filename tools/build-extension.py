@@ -9,20 +9,27 @@
 
 用法：  python3 tools/build-extension.py            # 构建
         python3 tools/build-extension.py --check    # 只校验产物是否与源文件一致
+        python3 tools/build-extension.py --zip      # 额外打包 dist/*.zip（发给别人用）
+
+打包说明：zip 内根目录就是 manifest.json（没有外层 extension/ 文件夹），
+解压出来那个目录可以直接在 chrome://extensions 里「加载已解压的扩展程序」。
+Chrome 不支持直接安装 zip/crx，所以 zip 只是方便传输，不能拖进扩展页。
 """
 
 import json
 import os
 import re
 import sys
+import zipfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, 'douban-pt-uploader.user.js')
 EXT_DIR = os.path.join(ROOT, 'extension')
+DIST_DIR = os.path.join(ROOT, 'dist')
 OUT_CONTENT = os.path.join(EXT_DIR, 'content.js')
 OUT_MANIFEST = os.path.join(EXT_DIR, 'manifest.json')
 
-INSTALL_URL = 'https://github.com/ljp801005-tech/douban-info-hdw/tree/main/extension'
+INSTALL_URL = 'https://github.com/ljp801005-tech/douban-info-hdw/releases/latest/download/douban-pt-extension.zip'
 
 SHORT_DESC = ('在 PT 站种子详情页左上角一键生成 ◎ 格式豆瓣简介：'
               '粘贴豆瓣或 IMDb 链接，自动抓取片名、演职员、剧情，复制即可发种。')
@@ -134,8 +141,53 @@ def build_manifest(block):
     }
 
 
+def skip_in_zip(name):
+    """打包时跳过系统垃圾文件。"""
+    base = os.path.basename(name)
+    return base.startswith('.') or base in ('__MACOSX', 'Thumbs.db', 'desktop.ini')
+
+
+def make_zip(version):
+    """把 extension/ 打成 dist/<name>-v<version>.zip，zip 根目录即扩展根目录。"""
+    if not os.path.isdir(EXT_DIR):
+        fail('extension 目录不存在，先不带参数构建一次')
+    manifest_path = os.path.join(EXT_DIR, 'manifest.json')
+    if not os.path.exists(manifest_path):
+        fail('extension/manifest.json 不存在')
+
+    os.makedirs(DIST_DIR, exist_ok=True)
+    # 文件名不写版本号：manifest 里已有版本，README 与 Release 可以用恒定链接
+    out = os.path.join(DIST_DIR, 'douban-pt-extension.zip')
+    if os.path.exists(out):
+        os.remove(out)
+
+    files = []
+    for root, dirs, names in os.walk(EXT_DIR):
+        dirs[:] = sorted(d for d in dirs if not skip_in_zip(d))
+        for n in sorted(names):
+            if skip_in_zip(n):
+                continue
+            full = os.path.join(root, n)
+            files.append((full, os.path.relpath(full, EXT_DIR).replace(os.sep, '/')))
+
+    arc_names = [a for _, a in files]
+    if 'manifest.json' not in arc_names:
+        fail('zip 根目录缺少 manifest.json')
+
+    with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as z:
+        for full, arc in files:
+            info = zipfile.ZipInfo(arc, date_time=(2026, 1, 1, 0, 0, 0))
+            info.compress_type = zipfile.ZIP_DEFLATED
+            info.external_attr = 0o644 << 16
+            with open(full, 'rb') as f:
+                z.writestr(info, f.read())
+
+    return out, len(files), os.path.getsize(out)
+
+
 def main():
     check_only = '--check' in sys.argv
+    want_zip = '--zip' in sys.argv
     text = read_source()
     _, block = header_block(text)
 
@@ -167,6 +219,12 @@ def main():
     print('  %s  (%d 行)' % (os.path.relpath(OUT_CONTENT, ROOT), content.count('\n')))
     print('  %s  (version %s, %d 条 match)' % (
         os.path.relpath(OUT_MANIFEST, ROOT), manifest['version'], len(manifest['content_scripts'][0]['matches'])))
+
+    if want_zip:
+        out, count, size = make_zip(manifest['version'])
+        print('  %s  (%d 个文件, %.1f KB)' % (
+            os.path.relpath(out, ROOT), count, size / 1024.0))
+        print('zip 根目录即扩展根目录，解压后直接「加载已解压的扩展程序」选它')
     return 0
 
 

@@ -44,10 +44,10 @@ window.__DBPT_EXT.ready(function () {
 
   /* ======================== 版本与更新 ======================== */
 
-  var SCRIPT_VERSION = '2.9.0';
+  var SCRIPT_VERSION = '2.9.1';
   var UPDATE_URL = 'https://raw.githubusercontent.com/ljp801005-tech/douban-info-hdw/main/douban-pt-uploader.user.js';
   // 扩展版：检查更新仍比对 .user.js 的版本号，但安装入口指向扩展目录
-  var INSTALL_URL = 'https://github.com/ljp801005-tech/douban-info-hdw/tree/main/extension';
+  var INSTALL_URL = 'https://github.com/ljp801005-tech/douban-info-hdw/releases/latest/download/douban-pt-extension.zip';
   var CHECK_INTERVAL = 7 * 24 * 3600 * 1000;  // 每周检查一次
 
   /* ======================== 站点登记表 ======================== */
